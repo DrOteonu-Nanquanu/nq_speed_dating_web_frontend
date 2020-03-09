@@ -1,0 +1,10 @@
+@(expertises: Seq[models.Field_Of_Expertise])
+
+
+
+@main("Expertises Form") {
+    @for(expertise_data <- expertises) {
+        @expertise(expertise_data)
+    }
+}
+

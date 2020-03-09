@@ -3,6 +3,7 @@ package controllers
 import javax.inject._
 import play.api._
 import play.api.mvc._
+import models._
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -20,5 +21,19 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
    */
   def index() = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.index())
+  }
+
+  def field_of_expertise() = Action {
+    Ok(views.html.expertise(
+      new Field_Of_Expertise("test", 0, List())
+    ))
+  }
+
+  def form() = Action {
+    Ok(views.html.form(List(
+      new Field_Of_Expertise("test_foe_1", 1, List()),
+      new Field_Of_Expertise("test_foe_2", 2, List()),
+      new Field_Of_Expertise("test_foe_3", 3, List()),
+    )))
   }
 }
