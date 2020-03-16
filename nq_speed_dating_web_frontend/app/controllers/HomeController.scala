@@ -23,12 +23,18 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
     Ok(views.html.index())
   }
 
+  /**
+   * Will likely be removed soon
+   */
   def field_of_expertise() = Action {
     Ok(views.html.expertise(
       new Field_Of_Expertise("test", 0, List())
     ))
   }
 
+  /**
+   * The meat of the application: this page is where people fill in information about their expertise
+   */
   def form() = Action {
     Ok(views.html.form(List(
       new Field_Of_Expertise("test_foe_1", 1, List()),
@@ -37,27 +43,18 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
     )))
   }
 
-  def test(test: Int) = {
-    // Test method
-    println(test)
-
-    Action {
-      Ok(views.html.expertise(
-        new Field_Of_Expertise("test", 0, List())
-      ))
-    }
-  }
-
+  /**
+   * Updates the level of an expertise for a person to new_level
+   */
   def update_expertise(expertise_id: Int, person_id: Int, new_level: String) = {
-    // TODO: update in database
+    // TODO: forward to function in model that updates the database
+
     println(expertise_id)
     println(person_id)
     println(new_level)
 
     Action {
-      Ok(views.html.expertise(
-        new Field_Of_Expertise("test", 0, List())
-      ))
+      Ok("")
     }
   }
 }
