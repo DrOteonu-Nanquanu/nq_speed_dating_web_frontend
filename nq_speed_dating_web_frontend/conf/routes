@@ -9,6 +9,9 @@ GET /form  controllers.HomeController.form
 
 # Expertises
 GET     /expertise                  controllers.HomeController.field_of_expertise
+#POST    /exp?exp_id=$expertise_id<[0-9]+>&person_id=$person_id<[0-9]+>&new_level=$new_level<[A-z]+>     controllers.HomeController.index  # controllers.Expertises.update_expertise(models.Expertise_ID(expertise_id), models.Person_ID(person_id), models.Expertise_Level.from_name(new_level))
+POST /expertise/exp_id=$expertise_id<[0-9]+>&person_id=$person_id<[0-9]+>&new_level=$new_level<[A-z]+>      controllers.HomeController.update_expertise(expertise_id: Int, person_id: Int, new_level: String)
+GET /test/test=$test<[0-9]+>&q   controllers.HomeController.test(test: Int)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

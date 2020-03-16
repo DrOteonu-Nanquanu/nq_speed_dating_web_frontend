@@ -36,4 +36,28 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
       new Field_Of_Expertise("test_foe_3", 3, List()),
     )))
   }
+
+  def test(test: Int) = {
+    // Test method
+    println(test)
+
+    Action {
+      Ok(views.html.expertise(
+        new Field_Of_Expertise("test", 0, List())
+      ))
+    }
+  }
+
+  def update_expertise(expertise_id: Int, person_id: Int, new_level: String) = {
+    // TODO: update in database
+    println(expertise_id)
+    println(person_id)
+    println(new_level)
+
+    Action {
+      Ok(views.html.expertise(
+        new Field_Of_Expertise("test", 0, List())
+      ))
+    }
+  }
 }
