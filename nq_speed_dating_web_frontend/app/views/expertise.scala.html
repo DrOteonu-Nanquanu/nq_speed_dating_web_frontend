@@ -2,7 +2,7 @@
 
 @level_of_interest_button(value: String, name: String) = {
     <div>
-        <input type="radio" name="level_of_interest" value="$value">
+        <input type="radio" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)">
         <span>@name</span>
     </div>
 }
