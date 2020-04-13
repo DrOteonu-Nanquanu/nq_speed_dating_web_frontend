@@ -10,6 +10,8 @@ scalaVersion := "2.13.1"
 libraryDependencies += guice
 libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "5.0.0" % Test
 
+JsEngineKeys.engineType := JsEngineKeys.EngineType.Node
+
 // Adds additional packages into Twirl
 //TwirlKeys.templateImports += "org.nanquanu.controllers._"
 
