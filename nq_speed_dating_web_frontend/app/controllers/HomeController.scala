@@ -69,7 +69,7 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
     )
 
     Action {
-      Ok("")
+        Ok("")
     }
   }
 }

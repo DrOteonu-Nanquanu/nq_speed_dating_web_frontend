@@ -14,7 +14,10 @@ function submit_expertise(form) {
     console.log(level_of_interest, expertise_id);
     fetch(`../expertise/update/exp_id=${expertise_id}&new_level=${level_of_interest}`,
         {
-            method: 'PUT',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/json',
+            }
         }
     ).then(res => {
         console.log(res)
