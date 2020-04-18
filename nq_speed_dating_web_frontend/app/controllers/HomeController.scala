@@ -48,28 +48,29 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
    * Updates the level of an expertise for a person to new_level
    */
   def update_expertise(expertise_id: Int, new_level: String): Action[AnyContent] = {
-    // TODO: forward to function in model that updates the database
-
-    println(expertise_id)
-    println(new_level)
-
-    val level = Expertise_Level.from_name(new_level) match {
-      case Some(l) => l
-      case None => {
-        return Action {
-            BadRequest("new_level is not a valid Expertise_Level")
-          }
-      }
-    };
-
-    User_expertise_data.set_expertise_level(
-      User(Database_ID(0)), // TODO get user id from session
-      Expertise(Database_ID(expertise_id)),
-      level
-    )
-
     Action {
-        Ok("")
+      request => {
+        // TODO: get data from body instead of URL
+
+        println(expertise_id)
+        println(new_level)
+
+        Expertise_Level.from_name(new_level) match {
+          case None => {
+              BadRequest("new_level is not a valid Expertise_Level")
+          }
+          case Some(level) => {
+            // forward to function in model that updates the database
+            User_expertise_data.set_expertise_level(
+              User(Database_ID(0)), // TODO get user id from session
+              Expertise(Database_ID(expertise_id)),
+              level
+            )
+
+            Ok("")
+          }
+        }
+      }
     }
   }
 }
