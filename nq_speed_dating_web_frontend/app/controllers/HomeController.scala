@@ -11,7 +11,11 @@ import models.database.Database_ID
  * application's home page.
  */
 @Singleton
-class HomeController @Inject()(val controllerComponents: ControllerComponents) extends BaseController {
+class HomeController @Inject()(
+  val controllerComponents: ControllerComponents,
+  val userAction: UserInfoAction,
+  val sessionGenerator: SessionGenerator,
+) extends BaseController {
 
   /**
    * Create an Action to render an HTML page.
@@ -72,5 +76,18 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
         }
       }
     }
+  }
+
+  def secret_page = userAction {
+    implicit request: UserRequest[_] => {
+      request.userInfo match {
+        case Some(user_info) => Ok("welcome")
+        case None => Ok("you're not logged in")
+      }
+    }
+  }
+
+  def login_secret = userAction { implicit request: UserRequest[AnyContent] =>Ok("")
+
   }
 }
