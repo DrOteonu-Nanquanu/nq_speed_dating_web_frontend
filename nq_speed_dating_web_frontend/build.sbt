@@ -4,7 +4,7 @@ import play.core.PlayVersion.akkaVersion
 name := """nq_speed_dating_web_frontend"""
 organization := "org.nanquanu"
 
-version := "1.0-SNAPSHOT"
+version := "0.1-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 

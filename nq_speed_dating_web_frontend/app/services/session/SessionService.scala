@@ -24,7 +24,8 @@ class SessionService @Inject() (cacheActor: ActorRef[Command])(implicit ec: Exec
   }
 
   def lookup(sessionId: String): Future[Option[Array[Byte]]] = {
-    (cacheActor ? (GetFromCache(sessionId, _))).map {
+    (cacheActor ?
+      (GetFromCache(sessionId, _))).map {
       case Cached(key: Any, value: Option[_]) =>
         value.asInstanceOf[Option[Array[Byte]]]
     }

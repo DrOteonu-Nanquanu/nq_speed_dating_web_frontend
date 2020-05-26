@@ -15,7 +15,7 @@ class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
   val sessionGenerator: SessionGenerator,
-) extends BaseController {
+)(implicit ec: scala.concurrent.ExecutionContext) extends BaseController {
 
   /**
    * Create an Action to render an HTML page.
@@ -81,13 +81,17 @@ class HomeController @Inject()(
   def secret_page = userAction {
     implicit request: UserRequest[_] => {
       request.userInfo match {
-        case Some(user_info) => Ok("welcome")
+        case Some(user_info) => Ok("welcome " + user_info.username)
         case None => Ok("you're not logged in")
       }
     }
   }
 
-  def login_secret = userAction { implicit request: UserRequest[AnyContent] =>Ok("")
-
+  def login_secret = userAction.async { implicit request: UserRequest[AnyContent] =>
+    sessionGenerator.createSession(UserInfo("test_user")).map({
+      case (session_id, encrypted_cookie) => Ok("logged in!")
+        .withSession(request.session + (SESSION_ID -> session_id))
+        .withCookies(encrypted_cookie)
+    })
   }
 }
