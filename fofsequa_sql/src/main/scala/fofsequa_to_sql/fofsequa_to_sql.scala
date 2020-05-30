@@ -12,13 +12,13 @@ object Fofsequa_to_sql {
   val tables = List(
     Table("field_of_interest", List(
       Field("id", "int"),
-      Field("name", "string"),
+      Field("name", "VARCHAR(255)"),
       Field("parent_id", "int"),
     )),
 
     Table("nq_project", List(
       Field("id", "int"),
-      Field("name", "string"),
+      Field("name", "VARCHAR(255)"),
     )),
 
     Table("project_interesting_to", List(
