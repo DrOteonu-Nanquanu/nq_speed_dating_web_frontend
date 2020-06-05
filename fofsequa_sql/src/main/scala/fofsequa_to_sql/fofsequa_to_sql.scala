@@ -40,13 +40,14 @@ object Fofsequa_to_sql {
       case FolseqParser.Success(parsed, _next) => parsed
     }
 
+    // Create lists to hold sub_field and interesting_to relations
     var fois = ListBuffer[Field_of_interest]()
     var project_interesting_to = ListBuffer[Project_interesting_to]()
     var project_names = collection.mutable.Set[String]()
     var next_foi_id = 0
     var next_interesting_id = 0
 
-    // Get all sub_field_of and interesting_to statements
+    // Collect relevant data of all sub_field_of and interesting_to statements into the lists
     for(statement <- kb) {
       statement match {
         case AtomStatement(predicate, terms) => {
@@ -86,7 +87,9 @@ object Fofsequa_to_sql {
       }
     }
 
-    val projects_with_id = project_names.zip(0 to project_names.size)
+    // create maps of (name -> id)
+    val projects_with_id = project_names.toList.zip(0 to project_names.size)
+
     val project_name_to_id = mutable.HashMap.empty[String, Int]
     val foi_name_to_id = mutable.HashMap.empty[String, Int]
 
@@ -98,7 +101,35 @@ object Fofsequa_to_sql {
       foi_name_to_id.update(name, id)
     }
 
-    None
+    val interesting_queries = project_interesting_to.map({case Project_interesting_to(project_name, foi_name, id) => {
+      val project_id = project_name_to_id(project_name)
+      val foi_id = foi_name_to_id(foi_name)
+
+      s"""
+         |INSERT INTO project_interesting_to
+         |VALUES ($id, $project_id, $foi_id);""".stripMargin
+    }})
+
+    val foi_queries = fois.map({case Field_of_interest(name, parent_name, id) => {
+      val parent_id = project_name_to_id(parent_name)
+
+      s"""
+         |INSERT INTO field_of_interest
+         |VALUES ($id, $name, $parent_id);""".stripMargin
+    }})
+
+    val project_queries = projects_with_id.map({case (name, id) =>
+      s"""
+        |INSERT INTO nq_project
+        |VALUES ($id, $name);""".stripMargin
+    })
+
+    Some(
+      (foi_queries ++
+       interesting_queries ++
+       project_queries
+      ).toList
+    )
   }
 }
 
