@@ -1,0 +1,8 @@
+Sub_field_of('technical', 'all');
+Sub_field_of('mathematics', 'technical');
+Sub_field_of('logic', 'mathematics');
+Sub_field_of('physics', 'technical');
+
+Interesting_to('asofus', 'mathematics');
+Interesting_to('coin_dedureas', 'logic');
+Interesting_to('coin_dedureas', 'physics')
