@@ -17,20 +17,20 @@ object Fofsequa_to_sql {
 
   val tables = List(
     Table("field_of_interest", List(
-      Field("id", "int"),
+      Field("id", "INT"),
       Field("name", "VARCHAR(255)"),
-      Field("parent_id", "int"),
+      Field("parent_id", "INT"),
     )),
 
     Table("nq_project", List(
-      Field("id", "int"),
+      Field("id", "INT"),
       Field("name", "VARCHAR(255)"),
     )),
 
     Table("project_interesting_to", List(
-      Field("id", "int"),
-      Field("nq_project_id", "int"),
-      Field("field_of_interest_id", "int"),
+      Field("id", "INT"),
+      Field("nq_project_id", "INT"),
+      Field("field_of_interest_id", "INT"),
     )),
   )
 
@@ -55,7 +55,7 @@ object Fofsequa_to_sql {
             // This is a valid sub_field_of or field_of_interest statement
             val names = terms.map(_.asInstanceOf[ConstantTerm].constant.id.name)
 
-            if(predicate.name.name == "sub_field_of") {
+            if(predicate.name.name == "Sub_field_of") {
               // format is: sub_field_of('child_name', 'parent_name')
               fois.append(Field_of_interest(
                 names(0),
@@ -65,7 +65,7 @@ object Fofsequa_to_sql {
 
               next_foi_id += 1
             }
-            else if(predicate.name.name == "interesting_to") {
+            else if(predicate.name.name == "Interesting_to") {
               // format is: interesting_to('project_name', 'field_of_interest_name')
 
               project_names.add(names(0))
@@ -92,6 +92,7 @@ object Fofsequa_to_sql {
 
     val project_name_to_id = mutable.HashMap.empty[String, Int]
     val foi_name_to_id = mutable.HashMap.empty[String, Int]
+    foi_name_to_id.update("all", -1)
 
     for((name, id) <- projects_with_id) {
       project_name_to_id.update(name, id)
@@ -112,7 +113,7 @@ object Fofsequa_to_sql {
     }})
 
     val foi_queries = fois.map({case Field_of_interest(name, parent_name, id) => {
-      val parent_id = project_name_to_id(parent_name)
+      val parent_id = foi_name_to_id(parent_name)
 
       s"""
          |INSERT INTO field_of_interest
