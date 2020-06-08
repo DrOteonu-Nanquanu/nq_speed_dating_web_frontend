@@ -117,13 +117,13 @@ object Fofsequa_to_sql {
 
       s"""
          |INSERT INTO field_of_interest
-         |VALUES ($id, $name, $parent_id);""".stripMargin
+         |VALUES ($id, '$name', $parent_id);""".stripMargin
     }})
 
     val project_queries = projects_with_id.map({case (name, id) =>
       s"""
         |INSERT INTO nq_project
-        |VALUES ($id, $name);""".stripMargin
+        |VALUES ($id, '$name');""".stripMargin
     })
 
     Some(
