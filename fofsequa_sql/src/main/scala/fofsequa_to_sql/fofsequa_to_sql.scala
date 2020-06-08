@@ -101,6 +101,7 @@ object Fofsequa_to_sql {
       foi_name_to_id.update(name, id)
     }
 
+    // Create SQL insert statements
     val interesting_queries = project_interesting_to.map({case Project_interesting_to(project_name, foi_name, id) => {
       val project_id = project_name_to_id(project_name)
       val foi_id = foi_name_to_id(foi_name)
