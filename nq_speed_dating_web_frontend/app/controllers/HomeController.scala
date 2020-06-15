@@ -1,5 +1,7 @@
 package controllers
 
+import java.sql.DriverManager
+
 import javax.inject._
 import play.api._
 import play.api.mvc._
@@ -24,9 +26,35 @@ class HomeController @Inject()(
    * will be called when the application receives a `GET` request with
    * a path of `/`.
    */
-  def index() = Action { implicit request: Request[AnyContent] =>
+  def index() = Action { implicit request: Request[AnyContent] => {
+    import java.sql.DriverManager
+    import java.sql.Connection
+    var c: Connection = null
+    try {
+      Class.forName("org.postgresql.Driver")
+      c = DriverManager.getConnection("jdbc:postgresql://localhost:5432/nq_speed_dating", "postgres", "nanquanu")
+      val stmt = c.createStatement();
+      val sql =
+        """
+          |SELECT *
+          |FROM field_of_interest;""".stripMargin
+      var query_result = stmt.executeQuery(sql)
+      while(query_result.next()) {
+        val name = query_result.getString("name")
+        println(name)
+      }
+
+      stmt.close()
+    } catch {
+      case e: Exception =>
+        e.printStackTrace()
+        System.err.println(e.getClass.getName + ": " + e.getMessage)
+        System.exit(0)
+    }
+
+    System.out.println("Opened database successfully")
     Ok(views.html.index())
-  }
+  }}
 
   /**
    * Will likely be removed soon
