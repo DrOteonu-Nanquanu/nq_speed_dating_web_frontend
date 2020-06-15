@@ -7,6 +7,7 @@ import play.api._
 import play.api.mvc._
 import models._
 import models.database.Database_ID
+import services.database.ScalaApplicationDatabase
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -17,6 +18,7 @@ class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
   val sessionGenerator: SessionGenerator,
+  // val db: ScalaApplicationDatabase,
 )(implicit ec: scala.concurrent.ExecutionContext) extends BaseController {
 
   /**
@@ -29,7 +31,7 @@ class HomeController @Inject()(
   def index() = Action { implicit request: Request[AnyContent] => {
     import java.sql.DriverManager
     import java.sql.Connection
-    var c: Connection = null
+    /*var c: Connection = null
     try {
       Class.forName("org.postgresql.Driver")
       c = DriverManager.getConnection("jdbc:postgresql://localhost:5432/nq_speed_dating", "postgres", "nanquanu")
@@ -52,7 +54,8 @@ class HomeController @Inject()(
         System.exit(0)
     }
 
-    System.out.println("Opened database successfully")
+    System.out.println("Opened database successfully")*/
+
     Ok(views.html.index())
   }}
 
