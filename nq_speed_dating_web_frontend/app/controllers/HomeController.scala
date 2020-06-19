@@ -18,8 +18,11 @@ class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
   val sessionGenerator: SessionGenerator,
-  // val db: ScalaApplicationDatabase,
-)(implicit ec: scala.concurrent.ExecutionContext) extends BaseController {
+  //val db: ScalaApplicationDatabase,
+)(
+  implicit ec: scala.concurrent.ExecutionContext,
+  db: ScalaApplicationDatabase,
+) extends BaseController {
 
   /**
    * Create an Action to render an HTML page.
@@ -28,7 +31,7 @@ class HomeController @Inject()(
    * will be called when the application receives a `GET` request with
    * a path of `/`.
    */
-  def index() = Action { implicit request: Request[AnyContent] => {
+  def index() = Action.async { implicit request: Request[AnyContent] => {
     import java.sql.DriverManager
     import java.sql.Connection
     /*var c: Connection = null
@@ -56,7 +59,15 @@ class HomeController @Inject()(
 
     System.out.println("Opened database successfully")*/
 
-    Ok(views.html.index())
+    val test = db.print_project_names()
+
+
+    test.map(
+      _x =>  {
+        println(_x)
+        Ok(views.html.index())
+      }
+    )
   }}
 
   /**

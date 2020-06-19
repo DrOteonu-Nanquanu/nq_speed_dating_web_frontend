@@ -12,9 +12,13 @@ class DatabaseExecutionContext @Inject()(system: ActorSystem) extends CustomExec
 
 @Singleton
 class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecutionContext: DatabaseExecutionContext) {
-  def print_project_names(): Unit = {
+  def print_project_names() = {
+    println("print_project_names")
+
     Future {
-      db.withConnection { connection =>
+      println("print_project_names Future")
+      db.withConnection(connection => {
+        println("print_project_names Future Connection")
 
         val stmt = connection.createStatement();
         val sql =
@@ -29,7 +33,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         }
 
         stmt.close()
-      }
+
+        1 + 1
+      })
     }(databaseExecutionContext)
   }
 }
