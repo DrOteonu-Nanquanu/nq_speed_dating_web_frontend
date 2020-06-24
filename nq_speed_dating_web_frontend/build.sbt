@@ -15,6 +15,7 @@ libraryDependencies ++= Seq("org.scalatestplus.play" %% "scalatestplus-play" % "
   "org.abstractj.kalium" % "kalium" % "0.8.0",
   "com.typesafe.akka" %% "akka-distributed-data" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
+  jdbc,
 )
 
 JsEngineKeys.engineType := JsEngineKeys.EngineType.Node

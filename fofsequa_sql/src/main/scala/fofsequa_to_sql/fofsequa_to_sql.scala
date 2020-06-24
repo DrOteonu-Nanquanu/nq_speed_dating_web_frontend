@@ -8,29 +8,33 @@ import scala.collection.mutable.ListBuffer
 object Fofsequa_to_sql {
   // Constructs a list of SQL queries for creating the required tables
   lazy val create_tables = tables.map( {
-    case Table(table_name, fields) =>
+    case Table(table_name, fields, primary_key) =>
       s"CREATE TABLE $table_name" ++
         fields.map({case Field(field_name, data_type) =>
           field_name ++ " " ++ data_type
-        }).mkString("(", ",", ");")
+        }).mkString("(", ",", "") ++
+        (primary_key match {
+          case Some(key) => ", PRIMARY KEY (" ++ key ++ ")"
+          case None => ""
+      }) ++ ");"
   })
 
   val tables = List(
     Table("field_of_interest", List(
       Field("id", "INT"),
-      Field("name", "VARCHAR(255)"),
+      Field("name", "VARCHAR(255) NOT NULL"),
       Field("parent_id", "INT"),
     )),
 
     Table("nq_project", List(
-      Field("id", "INT"),
-      Field("name", "VARCHAR(255)"),
+      Field("id", "INT NOT NULL"),
+      Field("name", "VARCHAR(255) NOT NULL"),
     )),
 
     Table("project_interesting_to", List(
-      Field("id", "INT"),
-      Field("nq_project_id", "INT"),
-      Field("field_of_interest_id", "INT"),
+      Field("id", "INT NOT NULL"),
+      Field("nq_project_id", "INT NOT NULL"),
+      Field("field_of_interest_id", "INT NOT NULL"),
     )),
   )
 
@@ -102,6 +106,7 @@ object Fofsequa_to_sql {
       foi_name_to_id.update(name, id)
     }
 
+    // Create SQL insert statements
     val interesting_queries = project_interesting_to.map({case Project_interesting_to(project_name, foi_name, id) => {
       val project_id = project_name_to_id(project_name)
       val foi_id = foi_name_to_id(foi_name)
@@ -116,13 +121,13 @@ object Fofsequa_to_sql {
 
       s"""
          |INSERT INTO field_of_interest
-         |VALUES ($id, $name, $parent_id);""".stripMargin
+         |VALUES ($id, '$name', $parent_id);""".stripMargin
     }})
 
     val project_queries = projects_with_id.map({case (name, id) =>
       s"""
         |INSERT INTO nq_project
-        |VALUES ($id, $name);""".stripMargin
+        |VALUES ($id, '$name');""".stripMargin
     })
 
     Some(
@@ -138,4 +143,4 @@ case class Field_of_interest(name: String, parent_name: String, id: Int)
 case class Project_interesting_to(project_name: String, foi_name: String, id: Int)
 
 case class Field(name: String, data_type: String)
-case class Table(name: String, fields: Seq[Field])
+case class Table(name: String, fields: Seq[Field], primary_key: Option[String] = Some("id"))

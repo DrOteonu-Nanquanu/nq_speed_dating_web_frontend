@@ -9,8 +9,7 @@ GET /form  controllers.HomeController.form
 
 # Expertises
 GET     /expertise                  controllers.HomeController.field_of_expertise
-PUT     /expertise/update/exp_id=$expertise_id<[0-9]+>&new_level=$new_level<[A-z]+>      controllers.HomeController.update_expertise(expertise_id: Int, new_level: String)
-
+PUT     /expertise/update   controllers.HomeController.update_expertise
 # Test
 GET     /secret     controllers.HomeController.secret_page
 GET     /login     controllers.HomeController.login_secret
