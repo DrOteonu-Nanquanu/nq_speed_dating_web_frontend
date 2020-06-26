@@ -1,0 +1,7 @@
+#!/bin/bash
+cd "../fofsequa_sql"
+(
+    echo "CREATE DATABASE nq_speed_dating; \c nq_speed_dating";
+    (sbt "run --kb example_kb.fsq" | grep -v "^\[")
+) | sudo -u postgres psql
+
