@@ -1,7 +1,9 @@
 #!/bin/bash
 cd "../fofsequa_sql"
 (
-    echo "CREATE DATABASE nq_speed_dating; \c nq_speed_dating";
+    echo "CREATE DATABASE nq_speed_dating;";
     (sbt "run --kb example_kb.fsq" | grep -v "^\[")
 ) | sudo -u postgres psql
 
+sudo -u postgres createuser nanquanu
+echo "ALTER USER nanquanu PASSWORD 'nanquanu'; GRANT CONNECT ON DATABASE nq_speed_dating TO nanquanu; \c nq_speed_dating; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nanquanu;" | sudo -u postgres psql
