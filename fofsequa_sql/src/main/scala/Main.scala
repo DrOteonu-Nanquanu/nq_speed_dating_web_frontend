@@ -1,7 +1,5 @@
 object Main {
   def main(args: Array[String]): Unit = {
-    println("Hello World!")
-
     var kb_file: Option[String] = None
 
     for(i <- 0 to args.length - 1) {
@@ -16,11 +14,11 @@ object Main {
 
         val db_contents = fofsequa_to_sql.Fofsequa_to_sql.sql_from_kb(file_name) match {
           case Some(value) => {
-            println("succes")
+            // println("succes")
             value
           }
           case None => {
-            println("error")
+            println("error while creating database contents")
             return
           }
         }
