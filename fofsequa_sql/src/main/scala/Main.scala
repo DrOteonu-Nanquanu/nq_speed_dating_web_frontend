@@ -10,9 +10,9 @@ object Main {
 
     kb_file match {
       case Some(file_name) => {
-        val create_tables = fofsequa_to_sql.Fofsequa_to_sql.create_tables
+        val create_tables = fofsequa_to_sql.Foi_hierarchy.create_tables
 
-        val db_contents = fofsequa_to_sql.Fofsequa_to_sql.sql_from_kb(file_name) match {
+        val db_contents = fofsequa_to_sql.Foi_hierarchy.sql_from_kb(file_name) match {
           case Some(value) => {
             // println("succes")
             value

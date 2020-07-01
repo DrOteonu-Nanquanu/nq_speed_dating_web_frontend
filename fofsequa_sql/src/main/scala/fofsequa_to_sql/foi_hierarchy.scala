@@ -5,37 +5,27 @@ import org.nanquanu.fofsequa_reasoner._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-object Fofsequa_to_sql {
+object Foi_hierarchy {
   // Constructs a list of SQL queries for creating the required tables
-  lazy val create_tables = tables.map( {
-    case Table(table_name, fields, primary_key) =>
-      s"CREATE TABLE $table_name" ++
-        fields.map({case Field(field_name, data_type) =>
-          field_name ++ " " ++ data_type
-        }).mkString("(", ",", "") ++
-        (primary_key match {
-          case Some(key) => ", PRIMARY KEY (" ++ key ++ ")"
-          case None => ""
-      }) ++ ");"
-  })
+  lazy val create_tables = Create_sql.create_tables(tables)
 
   val tables = List(
     Table("field_of_interest", List(
-      Field("id", "INT"),
+      Field("id", "INT NOT NULL"),
       Field("name", "VARCHAR(255) NOT NULL"),
       Field("parent_id", "INT"),
-    )),
+    ), Some("id")),
 
     Table("nq_project", List(
       Field("id", "INT NOT NULL"),
       Field("name", "VARCHAR(255) NOT NULL"),
-    )),
+    ), Some("id")),
 
     Table("project_interesting_to", List(
       Field("id", "INT NOT NULL"),
       Field("nq_project_id", "INT NOT NULL"),
       Field("field_of_interest_id", "INT NOT NULL"),
-    )),
+    ), Some("id")),
   )
 
   def sql_from_kb(file_name: String): Option[List[String]] = {
@@ -141,6 +131,3 @@ object Fofsequa_to_sql {
 
 case class Field_of_interest(name: String, parent_name: String, id: Int)
 case class Project_interesting_to(project_name: String, foi_name: String, id: Int)
-
-case class Field(name: String, data_type: String)
-case class Table(name: String, fields: Seq[Field], primary_key: Option[String] = Some("id"))
