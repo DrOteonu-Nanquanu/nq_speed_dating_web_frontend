@@ -11,8 +11,6 @@ object Query_fofsequa {
       case None => return None
     }
 
-    answer match {
-
-    }
+    None
   }
 }
