@@ -1,10 +1,11 @@
 # Installation
 ## Assumptions / prerequisites
+- You should obviously first clone this git repository to your machine.
 - These instructions are written with Ubuntu 18.04 as operating system in mind.
 - `scripts/install_scala` uses curl. Make sure to have this installed through `sudo apt install curl`
 
 ## Running the scripts
-Open a terminal in the `../scripts` folder and run the following scripts in any order (or in parallel):
+Open a terminal in the `../scripts` folder and run the following scripts in any order:
 - `bash install_postgresql`
 - `bash install_scala`
 - `bash install_typescript`
