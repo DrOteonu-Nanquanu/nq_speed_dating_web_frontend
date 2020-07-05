@@ -4,6 +4,8 @@
 - These instructions are written with Ubuntu 18.04 as operating system in mind.
 - `scripts/install_scala` uses curl. Make sure to have this installed through `sudo apt install curl`
 
+This project depends on Fofsequa and FofsequaReasoner. Clone https://github.com/DrOteonu-Nanquanu/coin-dedureas and follow the installation instructions for these two projects.
+
 ## Running the scripts
 Open a terminal in the `../scripts` folder and run the following scripts in any order:
 - `bash install_postgresql`
