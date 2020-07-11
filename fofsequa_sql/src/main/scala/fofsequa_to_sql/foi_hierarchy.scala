@@ -1,9 +1,12 @@
 package fofsequa_to_sql
 import org.nanquanu.fofsequa._
-import org.nanquanu.fofsequa_reasoner._
+import org.nanquanu.fofsequa_reasoner.FofsequaReasoner
+import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.parallel.immutable
+import scala.util.{Failure, Success, Try}
 
 object Foi_hierarchy {
   // Constructs a list of SQL queries for creating the required tables
@@ -28,7 +31,37 @@ object Foi_hierarchy {
     ), Some("id")),
   )
 
-  def sql_from_kb(file_name: String): Option[List[String]] = {
+  object Queries {
+    val all_fields = FolseqParser.parse_statement_or_throw("![field from s_]: ?[parent]: Sub_field_of(field, parent)")
+    val sub_field_of = FolseqParser.parse_statement_or_throw("![sub_field, parent from s_]: Sub_field_of(sub_field, parent)")
+  }
+
+  def sql_from_kb(file_name: String): Try[List[String]] = {
+    val kb: String = {
+      val file = scala.io.Source.fromFile(file_name)
+
+      try file.getLines.mkString catch {
+        case exception: Throwable => return Failure(exception)
+      }
+      finally file.close()
+    }
+
+    val field_with_parent = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.all_fields) match {
+      case Success(value) => value
+      case f: Failure[List[List[String]]] => return Failure(f.exception)
+    })
+    .map(answer_tuple => (answer_tuple(0), answer_tuple(1)))
+
+    var id_of_field = mutable.HashMap.empty[String, Int]
+
+    var next_id = 0
+    for((sub_field, _) <- field_with_parent) {
+      id_of_field.update(sub_field, next_id)
+      next_id += 1
+    }
+  }
+
+  def sql_from_kb_old(file_name: String): Option[List[String]] = {
     val kb = FolseqParser.parseAll(FolseqParser.fofsequa_document, io.Source.fromFile(file_name).mkString) match {
       case FolseqParser.NoSuccess(msg, input) => { println(msg); return None }
       case FolseqParser.Success(parsed, _next) => parsed
