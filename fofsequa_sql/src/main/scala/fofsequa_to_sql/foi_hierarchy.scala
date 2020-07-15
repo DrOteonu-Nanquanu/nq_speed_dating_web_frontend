@@ -81,8 +81,10 @@ object Foi_hierarchy {
     // Create queries to insert fields of interest
     val foi_queries = field_with_parent.map({case (field_name, parent_name) => {
       val id = id_of_field(field_name)
-      val parent_id = id_of_field(parent_name)
-
+      val parent_id = parent_name match {
+        case Some(name) => id_of_field(name)
+        case None => "NULL"
+      }
       s"""
         |INSERT INTO field_of_interest
         |VALUES ($id, '$field_name', $parent_id);""".stripMargin
