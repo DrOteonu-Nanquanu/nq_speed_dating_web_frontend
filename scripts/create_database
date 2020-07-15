@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "../fofsequa_sql"
-sbt build
+sbt compile
 
 (
     echo "CREATE DATABASE nq_speed_dating;";
