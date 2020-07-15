@@ -1,9 +1,12 @@
 package fofsequa_to_sql
 import org.nanquanu.fofsequa._
-import org.nanquanu.fofsequa_reasoner._
+import org.nanquanu.fofsequa_reasoner.FofsequaReasoner
+import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.parallel.immutable
+import scala.util.{Failure, Success, Try}
 
 object Foi_hierarchy {
   // Constructs a list of SQL queries for creating the required tables
@@ -28,7 +31,103 @@ object Foi_hierarchy {
     ), Some("id")),
   )
 
-  def sql_from_kb(file_name: String): Option[List[String]] = {
+  object Queries {
+    val sub_field_of = FolseqParser.parse_statement_or_throw("![sub_field, parent from s_]: Sub_field_of(sub_field, parent)")
+    val nq_project_with_parent = FolseqParser.parse_statement_or_throw("![nq_project, sub_field from s_]: Interesting_to(nq_project, sub_field)")
+  }
+
+  private def assign_id[T](iterable: Iterable[T]): mutable.HashMap[T, Int] = {
+    var result = mutable.HashMap.empty[T, Int]
+    var next_id = 0
+
+    for(item <- iterable) {
+      result.update(item, next_id)
+      next_id += 1
+    }
+
+    result
+  }
+
+  def sql_from_kb(file_name: String): Try[List[String]] = {
+    // Read file
+    val kb: String = {
+      val file = scala.io.Source.fromFile(file_name)
+
+      try file.getLines.mkString catch {
+        case exception: Throwable => return Failure(exception)
+      }
+      finally file.close()
+    }
+
+    // Query fields and their parents
+    val field_with_parent = ("all", None) :: (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.sub_field_of) match {
+      case Success(value) => value
+      case f: Failure[List[List[String]]] => return Failure(f.exception)
+    })
+    .map(answer_tuple => (answer_tuple(0), Some(answer_tuple(1))))
+
+    // Query nanquanu projects and the interested fields
+    val project_interesting_to = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.nq_project_with_parent) match {
+      case Success(value) => value
+      case f: Failure[List[List[String]]] => return Failure(f.exception)
+    })
+    .map(answer_tuple => (answer_tuple(0), answer_tuple(1)))
+
+    // Assign IDs to fields
+    val id_of_field = assign_id(field_with_parent.map(
+      { case (name, _parent) => name }
+    ).distinct)
+
+    // Create queries to insert fields of interest
+    val foi_queries = field_with_parent.map({case (field_name, parent_name) => {
+      val id = id_of_field(field_name)
+      val parent_id = parent_name match {
+        case Some(name) => id_of_field(name)
+        case None => "NULL"
+      }
+      s"""
+        |INSERT INTO field_of_interest
+        |VALUES ($id, '$field_name', $parent_id);""".stripMargin
+    }})
+
+    // Assign IDs to projects
+    val projects = project_interesting_to.map(
+      { case (project, _foi) => project }
+    ).toSet
+
+    val id_of_project = assign_id(projects)
+
+    // Create queries to insert projects
+    val project_queries = projects.map(project_name => {
+      val id = id_of_project(project_name)
+
+      s"""
+         |INSERT INTO nq_project
+         |VALUES ($id, '$project_name');""".stripMargin
+    })
+
+    var next_id = 0
+
+    // Create queries to insert relations between NQ projects and Fields of interest
+    val interesting_to_queries = project_interesting_to.map({case (project_name, foi_name) => {
+      val project_id = id_of_project(project_name)
+      val foi_id = id_of_field(foi_name)
+      val id = next_id
+      next_id += 1
+
+      s"""
+         |INSERT INTO project_interesting_to
+         |VALUES ($id, $project_id, $foi_id);""".stripMargin
+    }})
+
+    Success(
+      foi_queries ++
+      project_queries ++
+      interesting_to_queries
+    )
+  }
+
+  def sql_from_kb_old(file_name: String): Option[List[String]] = {
     val kb = FolseqParser.parseAll(FolseqParser.fofsequa_document, io.Source.fromFile(file_name).mkString) match {
       case FolseqParser.NoSuccess(msg, input) => { println(msg); return None }
       case FolseqParser.Success(parsed, _next) => parsed

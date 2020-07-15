@@ -1,3 +1,5 @@
+import scala.util.{Failure, Success}
+
 object Main {
   def main(args: Array[String]): Unit = {
     var kb_file: Option[String] = None
@@ -13,12 +15,13 @@ object Main {
         val create_tables = fofsequa_to_sql.Foi_hierarchy.create_tables
 
         val db_contents = fofsequa_to_sql.Foi_hierarchy.sql_from_kb(file_name) match {
-          case Some(value) => {
+          case Success(value) => {
             // println("succes")
             value
           }
-          case None => {
+          case Failure(exception) => {
             println("error while creating database contents")
+            throw exception
             return
           }
         }
