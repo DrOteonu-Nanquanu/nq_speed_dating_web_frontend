@@ -1,7 +1,7 @@
 import scala.io.StdIn
 import scala.util.{Failure, Success}
 
-object Main {
+object Fofsequa_sql {
   def main(args: Array[String]): Unit = {
     var kb_file: Option[String] = None
     var has_args = false
