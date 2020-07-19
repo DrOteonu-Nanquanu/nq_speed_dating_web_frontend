@@ -5,7 +5,6 @@ import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.collection.parallel.immutable
 import scala.util.{Failure, Success, Try}
 
 object Foi_hierarchy {
