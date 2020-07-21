@@ -1,10 +1,10 @@
 package fofsequa_to_sql
 
-object user_data {
+object User_data {
   lazy val create_tables = Create_sql.create_tables(tables)
 
   val tables = List(
-    Table("user", List (
+    Table("nq_user", List (         // 'user' is not a valid name for a table in PostgreSQL
       Field("id", "INT NOT NULL"),
       Field("user_name", "VARCHAR(255) NOT NULL"),
       Field("password_hash", "VARCHAR(255) NOT NULL"),

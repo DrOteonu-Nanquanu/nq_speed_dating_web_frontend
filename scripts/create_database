@@ -5,7 +5,7 @@ sbt "run --create_config"
 (
     echo "CREATE DATABASE nq_speed_dating;";
     echo "\c nq_speed_dating";
-    (sbt "run --kb example_kb.fsq" | grep -v "^\[")
+	(sbt "run --kb example_kb.fsq --user_tables" | grep -v "^\[")
 ) | sudo -u postgres psql
 
 sudo -u postgres createuser nanquanu
