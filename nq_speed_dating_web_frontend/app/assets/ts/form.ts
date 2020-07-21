@@ -1,7 +1,7 @@
 function submit_expertise(form: HTMLFormElement) {
     console.log(form);
 
-    const inputs = (Array as any).from(form.getElementsByTagName("input")) as HTMLInputElement[];    
+    const inputs = Array.from(form.getElementsByTagName("input")) as HTMLInputElement[];    
     const level_of_interest = inputs
         .filter(input => input.name === "level_of_interest")
         .find(radio_button => radio_button.checked)
@@ -25,6 +25,11 @@ function submit_expertise(form: HTMLFormElement) {
     ).then(res => {
         console.log(res)
         res.text().then(console.log)
+
+        if(res.status == 401) {
+            window.location.href = "/"
+        }
+
         return res
     })
 }

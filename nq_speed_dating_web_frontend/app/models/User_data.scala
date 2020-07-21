@@ -8,6 +8,9 @@ case class User(database_ID: Database_ID)
 object User_expertise_data {
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
   def set_expertise_level(user: User, expertise: Expertise, expertise_level: Expertise_Level.Expertise_Level): Unit = {
+    println(user.database_ID.id)
+    println(expertise.database_id.id)
+    println(expertise_level)
     // TODO: Update database
   }
 

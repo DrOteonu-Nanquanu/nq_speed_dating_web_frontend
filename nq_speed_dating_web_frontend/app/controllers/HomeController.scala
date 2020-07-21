@@ -9,6 +9,7 @@ import models._
 import models.database.Database_ID
 import play.api.libs.json.{JsNumber, JsPath, JsString, JsValue}
 import services.database.ScalaApplicationDatabase
+import play.api.data._
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -95,47 +96,48 @@ class HomeController @Inject()(
    * Updates the level of an expertise for a person to new_level
    */
   def update_expertise() = {
-    Action(parse.json) {
-      request => {
-        // TODO: get data from body instead of URL
-        if(request.hasBody) {
-          // Read expertise_id and level_of_interest from body
-          val json = request.body
+    userAction(parse.json) {
+      request: UserRequest[JsValue] => {
 
-          (json \ "expertise_id").get match {
-            case JsNumber(value) => {
-              val expertise_id = value.intValue
+        request.userInfo match {
+          case None => Unauthorized("you're not logged in")
+          case Some(user_info) =>
+            if (request.hasBody) {
+              // Read expertise_id and level_of_interest from body
+              val json = request.body
 
-              (json \ "level_of_interest").get match {
-                case JsString(new_level) => {
-                  println(expertise_id)
-                  println(new_level)
+              (json \ "expertise_id").get match {
+                case JsNumber(value) => {
+                  val expertise_id = value.intValue
 
-                  Expertise_Level.from_name(new_level) match {
-                    case None => {
-                      BadRequest("new_level is not a valid Expertise_Level")
+                  (json \ "level_of_interest").get match {
+                    case JsString(new_level) => {
+                      Expertise_Level.from_name(new_level) match {
+                        case None => {
+                          BadRequest("new_level is not a valid Expertise_Level")
+                        }
+                        case Some(level) => {
+                          // forward to function in model that updates the database
+                          User_expertise_data.set_expertise_level(
+                            User(Database_ID(0)), // TODO get user id from session
+                            Expertise(Database_ID(expertise_id)),
+                            level
+                          )
+
+                          Ok("")
+                        }
+                      }
                     }
-                    case Some(level) => {
-                      // forward to function in model that updates the database
-                      User_expertise_data.set_expertise_level(
-                        User(Database_ID(0)), // TODO get user id from session
-                        Expertise(Database_ID(expertise_id)),
-                        level
-                      )
-
-                      Ok("")
-                    }
+                    case _ => BadRequest("level_of_interest isn't a string")
                   }
                 }
-                case _ => BadRequest("level_of_interest isn't a string")
+                case _ => BadRequest("expertise_id isn't a number")
               }
             }
-            case _ => BadRequest("expertise_id isn't a number")
-          }
-        }
-        else {
-          // TODO: error
-          BadRequest("response has no body")
+            else {
+              // TODO: error
+              BadRequest("response has no body")
+            }
         }
       }
     }
@@ -150,11 +152,26 @@ class HomeController @Inject()(
     }
   }
 
-  def login_secret = userAction.async { implicit request: UserRequest[AnyContent] =>
-    sessionGenerator.createSession(UserInfo("test_user")).map({
+  case class Login_info(username: String, password: String)
+
+  val login_form = Form(
+    Forms.mapping(
+      "username" -> Forms.text,
+      "password" -> Forms.text
+    )(Login_info.apply)(Login_info.unapply)
+  )
+
+  def login = userAction.async(parse.form(login_form)) { implicit request: UserRequest[Login_info] => {
+    val Login_info(username, password) = request.body
+
+    println(username)
+
+    // TODO: verify password
+
+    sessionGenerator.createSession(UserInfo(username)).map({
       case (session_id, encrypted_cookie) => Ok("logged in!")
         .withSession(request.session + (SESSION_ID -> session_id))
         .withCookies(encrypted_cookie)
-    })
+    })}
   }
 }
