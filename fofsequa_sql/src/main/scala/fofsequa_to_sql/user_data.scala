@@ -6,9 +6,8 @@ object User_data {
   val tables = List(
     Table("nq_user", List (         // 'user' is not a valid name for a table in PostgreSQL
       Field("id", "INT NOT NULL"),
-      Field("user_name", "VARCHAR(255) NOT NULL"),
+      Field("username", "VARCHAR(255) NOT NULL"),
       Field("password_hash", "VARCHAR(255) NOT NULL"),
-      Field("password_salt", "VARCHAR(255) NOT NULL"),
     ), Some("id")),
     Table("interest_level", List(
       Field("id", "INT NOT NULL"),

@@ -1,15 +1,15 @@
 package controllers
 
-import java.sql.DriverManager
-
 import javax.inject._
-import play.api._
 import play.api.mvc._
 import models._
 import models.database.Database_ID
 import play.api.libs.json.{JsNumber, JsPath, JsString, JsValue}
 import services.database.ScalaApplicationDatabase
 import play.api.data._
+
+import scala.concurrent.Future
+import org.mindrot.jbcrypt.BCrypt
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -34,38 +34,10 @@ class HomeController @Inject()(
    * a path of `/`.
    */
   def index() = Action.async { implicit request: Request[AnyContent] => {
-    import java.sql.DriverManager
-    import java.sql.Connection
-    /*var c: Connection = null
-    try {
-      Class.forName("org.postgresql.Driver")
-      c = DriverManager.getConnection("jdbc:postgresql://localhost:5432/nq_speed_dating", "postgres", "nanquanu")
-      val stmt = c.createStatement();
-      val sql =
-        """
-          |SELECT *
-          |FROM field_of_interest;""".stripMargin
-      var query_result = stmt.executeQuery(sql)
-      while(query_result.next()) {
-        val name = query_result.getString("name")
-        println(name)
-      }
-
-      stmt.close()
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
-        System.err.println(e.getClass.getName + ": " + e.getMessage)
-        System.exit(0)
-    }
-
-    System.out.println("Opened database successfully")*/
-
     val test = db.print_project_names()
 
-
     test.map(
-      _x =>  {
+      _x => {
         println(_x)
         Ok(views.html.index())
       }
@@ -119,7 +91,7 @@ class HomeController @Inject()(
                         case Some(level) => {
                           // forward to function in model that updates the database
                           User_expertise_data.set_expertise_level(
-                            User(Database_ID(0)), // TODO get user id from session
+                            user_info.id, // TODO get user id from session
                             Expertise(Database_ID(expertise_id)),
                             level
                           )
@@ -166,12 +138,36 @@ class HomeController @Inject()(
 
     println(username)
 
-    // TODO: verify password
+    db.get_user_verification_data(username).flatMap({
+      case List() => Future{ Ok("Username not found") }
+      case (user: User) :: List() => {
+        if (BCrypt.checkpw(password, user.password_hash)) {
+          sessionGenerator.createSession(UserInfo(username, user.database_ID)).map({
+            case (session_id, encrypted_cookie) => Ok("logged in!")
+              .withSession(request.session + (SESSION_ID -> session_id))
+              .withCookies(encrypted_cookie)
+          })
+        }
+        else {
+          Future { Ok("Incorrect password") }
+        }
+      }
+      case _ => {
+        println("multiple accounts found with username = " + username)
+        Future { InternalServerError("There were multiple accounts with the same username") }
+      }
+    })
+  }}
 
-    sessionGenerator.createSession(UserInfo(username)).map({
-      case (session_id, encrypted_cookie) => Ok("logged in!")
-        .withSession(request.session + (SESSION_ID -> session_id))
-        .withCookies(encrypted_cookie)
-    })}
-  }
+
+
+  val register_form = login_form
+
+  def register = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
+    val hashed_password = BCrypt.hashpw(request.body.password, BCrypt.gensalt())
+
+    db.create_new_user(request.body.username, hashed_password).map(_ => {
+      Ok("")
+    })
+  }}
 }

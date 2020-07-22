@@ -11,4 +11,5 @@ sbt "run --create_config"
 sudo -u postgres createuser nanquanu
 echo "ALTER USER nanquanu PASSWORD 'nanquanu'; GRANT CONNECT ON DATABASE nq_speed_dating TO nanquanu;
 \c nq_speed_dating
-GRANT ALL ON ALL TABLES IN SCHEMA public TO nanquanu;" | sudo -u postgres psql
+GRANT ALL ON ALL TABLES IN SCHEMA public TO nanquanu;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO nanquanu;" | sudo -u postgres psql
