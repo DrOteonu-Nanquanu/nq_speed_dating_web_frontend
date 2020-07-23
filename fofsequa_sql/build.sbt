@@ -1,8 +1,8 @@
 name := "fofsequa_sql"
 
-version := "0.1"
+version := "0.2"
 
-scalaVersion := "2.12.7"
+scalaVersion := "2.13.3"
 
-libraryDependencies += "org.nanquanu" %% "fofsequa" % "0.2-SNAPSHOT"
-libraryDependencies += "org.nanquanu" %% "fofsequa-eprover-reasoner" % "0.2-SNAPSHOT"
+libraryDependencies += "org.nanquanu" %% "fofsequa" % "0.3-SNAPSHOT"
+libraryDependencies += "org.nanquanu" %% "fofsequa-eprover-reasoner" % "0.3-SNAPSHOT"

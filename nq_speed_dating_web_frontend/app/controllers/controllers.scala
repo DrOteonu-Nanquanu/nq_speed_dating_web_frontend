@@ -1,14 +1,14 @@
-import javax.inject.{ Inject, Singleton }
-
+import javax.inject.{Inject, Singleton}
+import models.database.Database_ID
 import play.api.http.SecretConfiguration
 import play.api.i18n.MessagesApi
-import play.api.libs.json.{ Format, Json }
+import play.api.libs.json.{Format, Json}
 import play.api.mvc._
-import services.encryption.{ EncryptedCookieBaker, EncryptionService }
+import services.encryption.{EncryptedCookieBaker, EncryptionService}
 import services.session.SessionService
 
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
  * Methods and objects common to all controllers
@@ -24,18 +24,12 @@ package object controllers {
 
   val USER_INFO_COOKIE_NAME = "userInfo"
 
-  case class UserInfo(username: String)
+  case class UserInfo(username: String, id: Database_ID)
 
   object UserInfo {
     // Use a JSON format to automatically convert between case class and JsObject
     implicit val format: Format[UserInfo] = Json.format[UserInfo]
   }
-
-  val form = Form(
-    mapping(
-      "username" -> text
-    )(UserInfo.apply)(UserInfo.unapply)
-  )
 
   def discardingSession(result: Result): Result = {
     result.withNewSession.discardingCookies(DiscardingCookie(USER_INFO_COOKIE_NAME))
