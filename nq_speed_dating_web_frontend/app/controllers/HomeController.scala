@@ -34,16 +34,9 @@ class HomeController @Inject()(
    * will be called when the application receives a `GET` request with
    * a path of `/`.
    */
-  def index() = Action.async { implicit request: Request[AnyContent] => {
-    val test = db.print_project_names()
-
-    test.map(
-      _x => {
-        println(_x)
-        Ok(views.html.index())
-      }
-    )
-  }}
+  def index() = Action { implicit request: Request[AnyContent] =>
+      Ok(views.html.index())
+  }
 
   /**
    * The meat of the application: this page is where people fill in information about their expertise
@@ -52,7 +45,7 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) => {
-          user_expertise_data.get_next_fois(user_id).map(fois => {
+          user_expertise_data.get_current_fois(user_id).map(fois => {
             Ok(views.html.form(fois))
           })
         }

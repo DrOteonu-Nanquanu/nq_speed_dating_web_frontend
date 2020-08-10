@@ -3,7 +3,7 @@ package models
 import models.Interest_level.Interest_level
 import models.database.Database_ID
 
-case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Interest_level)
+case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Option[Interest_level])
 
 case class Expertise_ID(id: Int)
 

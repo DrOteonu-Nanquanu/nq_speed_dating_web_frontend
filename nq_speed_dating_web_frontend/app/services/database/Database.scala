@@ -5,7 +5,7 @@ import java.sql.ResultSet
 import akka.actor.ActorSystem
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.{Field_Of_Expertise, User}
+import models.{Field_Of_Expertise, Interest_level, User}
 import models.database.Database_ID
 import play.api.db.Database
 
@@ -186,15 +186,36 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  def get_next_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
     Future {
       db.withConnection(connection => {
         val sql =
           """
-            |SELECT foi.name, foi.id, il.level_of_interest, FROM nq_user user, field_of_interest foi, interest_level il WHERE
+            |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
+            |FROM field_of_interest
+            |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
+            |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
+            |WHERE nq_user.id = ?;
             |""".stripMargin
 
-        throw new NotImplementedError()
+        val stmt = connection.prepareStatement(sql)
+        stmt.setInt(1, user_id.id)
+
+        val query_result = stmt.executeQuery()
+
+        var result = List[Field_Of_Expertise]()
+
+        while(query_result.next()) {
+          val maybe_level_of_interest = query_result.getString("level_of_interest") match { // Using getString because getInt doesn't return null but 0 when it isn't present
+            case null => None
+            case value => Some(
+              Interest_level(value.toInt)
+            )
+          }
+          result ::= Field_Of_Expertise(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
+        }
+
+        result
       })
 
     }

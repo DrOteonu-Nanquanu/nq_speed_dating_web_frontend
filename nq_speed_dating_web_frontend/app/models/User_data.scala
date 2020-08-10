@@ -19,7 +19,6 @@ class User_expertise_data @Inject()(
     println(user.id)
     println(expertise.id)
     println(expertise_level)
-    // TODO: Update database
 
     db.set_interesting_to(user, expertise, expertise_level)
   }
@@ -39,8 +38,7 @@ class User_expertise_data @Inject()(
     })
   }
 
-  def get_next_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
-    throw new NotImplementedError()
-    // db.get_next_fois()
+  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+    db.get_current_fois(user_id)
   }
 }

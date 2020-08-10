@@ -1,8 +1,8 @@
 @(expertise: models.Field_Of_Expertise)
 
-@level_of_interest_button(value: String, name: String) = {
+@level_of_interest_button(value: String, name: String, selected: Boolean) = {
     <div>
-        <input type="radio" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)">
+        <input type="radio" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)" @if(selected){checked}>
         <span>@name</span>
     </div>
 }
@@ -10,12 +10,12 @@
 <div>
     <div style="font-weight: bold">@expertise.name</div>
     <form>
-        <input type="hidden" id="expertise_id" value="@expertise.id">
+        <input type="hidden" id="expertise_id" value="@expertise.id.id">
 
-        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic")
-        @level_of_interest_button("interested", "I am interested in developing myself in this topic")
-        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic")
-        @level_of_interest_button("no_interest", "I am not (much) interested in this topic")
+        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", expertise.interest_level == Some(models.Interest_level.some_expertise))
+        @level_of_interest_button("interested", "I am interested in developing myself in this topic", expertise.interest_level == Some(models.Interest_level.interested))
+        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic", expertise.interest_level == Some(models.Interest_level.sympathise))
+        @level_of_interest_button("no_interest", "I am not (much) interested in this topic", expertise.interest_level == Some(models.Interest_level.no_interest))
     </form>
     <br>
 </div>
