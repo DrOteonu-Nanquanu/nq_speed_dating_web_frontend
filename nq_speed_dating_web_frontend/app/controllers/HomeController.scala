@@ -20,10 +20,11 @@ class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
   val sessionGenerator: SessionGenerator,
+  val user_expertise_data: User_expertise_data,
   //val db: ScalaApplicationDatabase,
+  db: ScalaApplicationDatabase,
 )(
   implicit ec: scala.concurrent.ExecutionContext,
-  db: ScalaApplicationDatabase,
 ) extends BaseController {
 
   /**
@@ -45,23 +46,23 @@ class HomeController @Inject()(
   }}
 
   /**
-   * Will likely be removed soon
-   */
-  def field_of_expertise() = Action {
-    Ok(views.html.expertise(
-      new Field_Of_Expertise("test", 0, List())
-    ))
-  }
-
-  /**
    * The meat of the application: this page is where people fill in information about their expertise
    */
-  def form() = Action {
-    Ok(views.html.form(List(
-      new Field_Of_Expertise("test_foe_1", 1, List()),
-      new Field_Of_Expertise("test_foe_2", 2, List()),
-      new Field_Of_Expertise("test_foe_3", 3, List()),
-    )))
+  def form() = userAction.async {
+    implicit request: UserRequest[_] => {
+      request.userInfo match {
+        case Some(UserInfo(_, user_id)) => {
+          user_expertise_data.get_next_fois(user_id).map(fois => {
+            Ok(views.html.form(fois))
+          })
+        }
+        case None => {
+          Future { Unauthorized("you're not logged in") }
+        }
+      }
+
+
+    }
   }
 
   /**
@@ -84,15 +85,15 @@ class HomeController @Inject()(
 
                   (json \ "level_of_interest").get match {
                     case JsString(new_level) => {
-                      Expertise_Level.from_name(new_level) match {
+                      Interest_level.from_name(new_level) match {
                         case None => {
                           BadRequest("new_level is not a valid Expertise_Level")
                         }
                         case Some(level) => {
                           // forward to function in model that updates the database
-                          User_expertise_data.set_expertise_level(
-                            user_info.id, // TODO get user id from session
-                            Expertise(Database_ID(expertise_id)),
+                          user_expertise_data.set_expertise_level(
+                            user_info.id,
+                            Database_ID(expertise_id),
                             level
                           )
 

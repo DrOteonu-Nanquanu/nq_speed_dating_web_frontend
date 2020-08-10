@@ -3,7 +3,7 @@ import org.nanquanu.fofsequa._
 import org.nanquanu.fofsequa_reasoner.FofsequaReasoner
 import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
@@ -16,6 +16,7 @@ object Foi_hierarchy {
       Field("id", "INT NOT NULL"),
       Field("name", "VARCHAR(255) NOT NULL"),
       Field("parent_id", "INT"),
+      Field("depth_in_tree", "INT NOT NULL"),
     ), Some("id")),
 
     Table("nq_project", List(
@@ -77,8 +78,35 @@ object Foi_hierarchy {
       { case (name, _parent) => name }
     ).distinct)
 
+    // Assign tree depth to FoI's
+    val foi_with_parent_and_depth: List[(String, Option[String], Int)] = {
+      var depth_of = mutable.HashMap.empty[String, Int]
+      var parent_of = mutable.HashMap.empty[String, Option[String]]
+
+      // Has side effects
+      def depth(foi: String): Int = {
+        val result = depth_of.get(foi) match {
+          case Some(value) => value
+          case None => parent_of(foi) match {
+            case Some(parent) => depth(parent) + 1
+            case None => 0
+          }
+        }
+
+        depth_of(foi) = result
+        result
+      }
+
+      for((foi, parent) <- field_with_parent) {
+        parent_of(foi) = parent
+      }
+
+      // Map with side effects
+      field_with_parent.map({ case (foi, parent) => (foi, parent, depth(foi)) })
+    }
+
     // Create queries to insert fields of interest
-    val foi_queries = field_with_parent.map({case (field_name, parent_name) => {
+    val foi_queries = foi_with_parent_and_depth.map({case (field_name, parent_name, depth) => {
       val id = id_of_field(field_name)
       val parent_id = parent_name match {
         case Some(name) => id_of_field(name)
@@ -86,7 +114,7 @@ object Foi_hierarchy {
       }
       s"""
         |INSERT INTO field_of_interest
-        |VALUES ($id, '$field_name', $parent_id);""".stripMargin
+        |VALUES ($id, '$field_name', $parent_id, $depth);""".stripMargin
     }})
 
     // Assign IDs to projects
@@ -123,106 +151,6 @@ object Foi_hierarchy {
       foi_queries ++
       project_queries ++
       interesting_to_queries
-    )
-  }
-
-  def sql_from_kb_old(file_name: String): Option[List[String]] = {
-    val kb = FolseqParser.parseAll(FolseqParser.fofsequa_document, io.Source.fromFile(file_name).mkString) match {
-      case FolseqParser.NoSuccess(msg, input) => { println(msg); return None }
-      case FolseqParser.Success(parsed, _next) => parsed
-    }
-
-    // Create lists to hold sub_field and interesting_to relations
-    var fois = ListBuffer[Field_of_interest]()
-    var project_interesting_to = ListBuffer[Project_interesting_to]()
-    var project_names = collection.mutable.Set[String]()
-    var next_foi_id = 0
-    var next_interesting_id = 0
-
-    // Collect relevant data of all sub_field_of and interesting_to statements into the lists
-    for(statement <- kb) {
-      statement match {
-        case AtomStatement(predicate, terms) => {
-          if(terms.length == 2 && terms.forall(_.isInstanceOf[ConstantTerm])) {
-            // This is a valid sub_field_of or field_of_interest statement
-            val names = terms.map(_.asInstanceOf[ConstantTerm].constant.id.name)
-
-            if(predicate.name.name == "Sub_field_of") {
-              // format is: sub_field_of('child_name', 'parent_name')
-              fois.append(Field_of_interest(
-                names(0),
-                names(1),
-                next_foi_id
-              ))
-
-              next_foi_id += 1
-            }
-            else if(predicate.name.name == "Interesting_to") {
-              // format is: interesting_to('project_name', 'field_of_interest_name')
-
-              project_names.add(names(0))
-
-              project_interesting_to.append(Project_interesting_to(
-                names(0),
-                names(1),
-                next_interesting_id
-              ))
-
-              next_interesting_id += 1
-            }
-          }
-          else {
-            // TODO: error, incorrect format
-          }
-        }
-        case _ => () // TODO: ERROR or ignore?
-      }
-    }
-
-    // create maps of (name -> id)
-    val projects_with_id = project_names.toList.zip(0 to project_names.size)
-
-    val project_name_to_id = mutable.HashMap.empty[String, Int]
-    val foi_name_to_id = mutable.HashMap.empty[String, Int]
-    foi_name_to_id.update("all", -1)
-
-    for((name, id) <- projects_with_id) {
-      project_name_to_id.update(name, id)
-    }
-
-    for(Field_of_interest(name, _, id) <- fois) {
-      foi_name_to_id.update(name, id)
-    }
-
-    // Create SQL insert statements
-    val interesting_queries = project_interesting_to.map({case Project_interesting_to(project_name, foi_name, id) => {
-      val project_id = project_name_to_id(project_name)
-      val foi_id = foi_name_to_id(foi_name)
-
-      s"""
-         |INSERT INTO project_interesting_to
-         |VALUES ($id, $project_id, $foi_id);""".stripMargin
-    }})
-
-    val foi_queries = fois.map({case Field_of_interest(name, parent_name, id) => {
-      val parent_id = foi_name_to_id(parent_name)
-
-      s"""
-         |INSERT INTO field_of_interest
-         |VALUES ($id, '$name', $parent_id);""".stripMargin
-    }})
-
-    val project_queries = projects_with_id.map({case (name, id) =>
-      s"""
-        |INSERT INTO nq_project
-        |VALUES ($id, '$name');""".stripMargin
-    })
-
-    Some(
-      (foi_queries ++
-       interesting_queries ++
-       project_queries
-      ).toList
     )
   }
 }
