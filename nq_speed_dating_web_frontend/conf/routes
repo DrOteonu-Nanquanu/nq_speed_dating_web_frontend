@@ -8,7 +8,6 @@ GET     /                           controllers.HomeController.index
 GET /form  controllers.HomeController.form
 
 # Expertises
-GET     /expertise                  controllers.HomeController.field_of_expertise
 PUT     /expertise/update   controllers.HomeController.update_expertise
 # Test
 GET     /secret     controllers.HomeController.secret_page

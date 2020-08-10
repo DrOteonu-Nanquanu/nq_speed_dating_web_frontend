@@ -5,7 +5,7 @@ import java.sql.ResultSet
 import akka.actor.ActorSystem
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.User
+import models.{Field_Of_Expertise, User}
 import models.database.Database_ID
 import play.api.db.Database
 
@@ -186,8 +186,18 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  def get_foi_children(): Unit = {
+  def get_next_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+    Future {
+      db.withConnection(connection => {
+        val sql =
+          """
+            |SELECT foi.name, foi.id, il.level_of_interest, FROM nq_user user, field_of_interest foi, interest_level il WHERE
+            |""".stripMargin
 
+        throw new NotImplementedError()
+      })
+
+    }
   }
 
 /*  def query[R](sql: String, result_processor: ResultSet => R): Future[List[R]] = Future {

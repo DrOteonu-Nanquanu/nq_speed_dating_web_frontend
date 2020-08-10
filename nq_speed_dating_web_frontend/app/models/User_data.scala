@@ -40,6 +40,7 @@ class User_expertise_data @Inject()(
   }
 
   def get_next_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
-
+    throw new NotImplementedError()
+    // db.get_next_fois()
   }
 }
