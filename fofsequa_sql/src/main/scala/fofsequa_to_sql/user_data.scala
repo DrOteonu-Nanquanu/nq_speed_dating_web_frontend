@@ -9,6 +9,7 @@ object User_data {
       Field("username", "VARCHAR(255) NOT NULL"),
       Field("password_hash", "VARCHAR(255) NOT NULL"),
       Field("current_parent_id", "INT NOT NULL DEFAULT 0"),
+      Field("current_depth_in_tree", "INT NOT NULL DEFAULT 0")
     ), Some("id")),
     Table("interest_level", List(
       Field("id", "SERIAL NOT NULL"),

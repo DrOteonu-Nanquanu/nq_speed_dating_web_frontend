@@ -26,15 +26,16 @@ class User_expertise_data @Inject()(
   def get_expertise_level(user: User, expertise: Expertise): Interest_level.Interest_level = Interest_level.no_interest // TODO
 
   def next_foi_parent(user: Database_ID): Future[Option[Database_ID]] = {
-    db.next_foi_parent(user).map(next_parent_id => {
-      next_parent_id match {
+    db.next_foi_parent(user).flatMap(next_parent_id => {
+      val future = next_parent_id match {
         case Some(new_parent_id) => {
+          println("next_parent_id = some " + new_parent_id)
           db.set_foi_parent(user, new_parent_id)
         }
-        case None => ()
+        case None => Future { println("next_parent_id = none") }
       }
 
-      next_parent_id
+      future.map(_ => next_parent_id)
     })
   }
 

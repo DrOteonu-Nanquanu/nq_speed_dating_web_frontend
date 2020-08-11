@@ -44,17 +44,23 @@ class HomeController @Inject()(
   def form() = userAction.async {
     implicit request: UserRequest[_] => {
       request.userInfo match {
-        case Some(UserInfo(_, user_id)) => {
-          user_expertise_data.get_current_fois(user_id).map(fois => {
-            Ok(views.html.form(fois))
-          })
-        }
-        case None => {
-          Future { Unauthorized("you're not logged in") }
-        }
+        case Some(UserInfo(_, user_id)) =>
+          user_expertise_data.get_current_fois(user_id).map(fois => Ok(views.html.form(fois)))
+
+        case None => Future { Unauthorized("you're not logged in") }
       }
+    }
+  }
 
+  def move_to_next_parent() = userAction.async {
+    implicit request: UserRequest[_] => {
+      request.userInfo match {
+        case Some(UserInfo(_, user_id)) =>
+          user_expertise_data.next_foi_parent(user_id)
+            .map(_ => Redirect("form"))
 
+        case None => Future { Unauthorized("you're not logged in") }
+      }
     }
   }
 

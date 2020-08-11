@@ -1,6 +1,6 @@
 package services.database
 
-import java.sql.ResultSet
+import java.sql.{Connection, ResultSet}
 
 import akka.actor.ActorSystem
 import javax.inject._
@@ -137,33 +137,61 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  def next_foi_parent(username_id: Database_ID) = {
+  private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
+    val sql =
+      """
+        |SELECT parent.id AS parent_id
+        |FROM field_of_interest parent, field_of_interest child
+        |WHERE
+          |child.parent_id = parent.id AND
+          |NOT EXISTS(
+            |SELECT *
+            |FROM interest_level
+            |WHERE
+              |interest_level.user_id = ? AND
+              |interest_level.interest_id = child.id
+          |) AND
+          |parent.depth_in_tree IN(
+            |SELECT current_depth_in_tree FROM nq_user WHERE id = ?
+          |);
+        |""".stripMargin
+
+    val stmt = connection.prepareStatement(sql)
+    stmt.setInt(1, user_id.id)
+    stmt.setInt(2, user_id.id)
+
+    val query_result = stmt.executeQuery()
+
+    if (query_result.next()) {
+      Some(Database_ID(query_result.getInt("parent_id")))
+    }
+    else {
+      None
+    }
+  }
+
+  def next_foi_parent(user_id: Database_ID): Future[Option[Database_ID]] = {
     Future {
       db.withConnection(connection => {
-        val sql =
-          """
-            |SELECT parent.id AS parent_id
-            |FROM field_of_interest parent, field_of_interest child
-            |WHERE
-              |child.parent_id = parent.id AND
-              |NOT EXISTS(
-                |SELECT *
-                |FROM interest_level
-                |WHERE interest_level.user_id = ?
-              |);
-            |""".stripMargin
+        next_foi_parent_inner(user_id, connection) match {
+          case s: Some[Database_ID] => s
+          case None => {
+            // Update the current_depth_in_tree of the user
+            val update_sql =
+              """
+                |UPDATE nq_user SET current_depth_in_tree = current_depth_in_tree + 1 WHERE id = ?;
+                |""".stripMargin
+            val update_statement = connection.prepareStatement(update_sql)
+            update_statement.setInt(1, user_id.id)
 
-        val stmt = connection.prepareStatement(sql)
-        stmt.setInt(1, username_id.id)
+            update_statement.executeUpdate()
 
-        val query_result = stmt.executeQuery()
-
-        if (query_result.next()) {
-          Some(Database_ID(query_result.getInt("parent_id")))
-        }
-        else {
-          // TODO: No results
-          None
+            // Query again, but with updated current_depth_in_tree
+            next_foi_parent_inner(user_id, connection) match {
+              case s: Some[Database_ID] => s
+              case None => None // The user filled in everything
+            }
+          }
         }
       })
     }
@@ -172,16 +200,20 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   def set_foi_parent(user_id: Database_ID, foi_parent_id: Database_ID) = {
     Future {
       db.withConnection(connection => {
+
+        println(user_id.id)
+        println(foi_parent_id.id)
+
         val sql =
           """
-            |UPDATE nq_user WHERE id = ? SET current_parent_id = ?
+            |UPDATE nq_user SET current_parent_id = ? WHERE id = ? ;
             |""".stripMargin
 
         val stmt = connection.prepareStatement(sql)
-        stmt.setInt(1, user_id.id)
-        stmt.setInt(2, foi_parent_id.id)
+        stmt.setInt(1, foi_parent_id.id)
+        stmt.setInt(2, user_id.id)
 
-        stmt.executeUpdate()
+        println(stmt.executeUpdate())
       })
     }
   }

@@ -3,9 +3,9 @@
 # https://www.playframework.com/documentation/latest/ScalaRouting
 # ~~~~
 
-# An example controller showing a sample home page
-GET     /                           controllers.HomeController.index
-GET /form  controllers.HomeController.form
+GET  /                          controllers.HomeController.index
+GET  /form                      controllers.HomeController.form
+GET  /move_to_next_parent       controllers.HomeController.move_to_next_parent
 
 # Expertises
 PUT     /expertise/update   controllers.HomeController.update_expertise
@@ -16,5 +16,5 @@ GET     /secret     controllers.HomeController.secret_page
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
 
 # Forms
-POST /login     controllers.HomeController.login
-POST /register     controllers.HomeController.register
+POST /login                     controllers.HomeController.login
+POST /register                  controllers.HomeController.register
