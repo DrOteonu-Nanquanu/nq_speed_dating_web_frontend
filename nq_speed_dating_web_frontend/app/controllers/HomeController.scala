@@ -19,10 +19,10 @@ import org.mindrot.jbcrypt.BCrypt
 class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
-  val sessionGenerator: SessionGenerator,
   val user_expertise_data: User_expertise_data,
   //val db: ScalaApplicationDatabase,
-  db: ScalaApplicationDatabase,
+  val db: ScalaApplicationDatabase,
+  val verifier: Verification,
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) extends BaseController {
@@ -135,28 +135,7 @@ class HomeController @Inject()(
 
   def login = userAction.async(parse.form(login_form)) { implicit request: UserRequest[Login_info] => {
     val Login_info(username, password) = request.body
-
-    println(username)
-
-    db.get_user_verification_data(username).flatMap({
-      case List() => Future{ Ok("Username not found") }
-      case (user: User) :: List() => {
-        if (BCrypt.checkpw(password, user.password_hash)) {
-          sessionGenerator.createSession(UserInfo(username, user.database_ID)).map({
-            case (session_id, encrypted_cookie) => Ok("logged in!")
-              .withSession(request.session + (SESSION_ID -> session_id))
-              .withCookies(encrypted_cookie)
-          })
-        }
-        else {
-          Future { Ok("Incorrect password") }
-        }
-      }
-      case _ => {
-        println("multiple accounts found with username = " + username)
-        Future { InternalServerError("There were multiple accounts with the same username") }
-      }
-    })
+    verifier.login(username, password, request.session)
   }}
 
 
@@ -164,10 +143,6 @@ class HomeController @Inject()(
   val register_form = login_form
 
   def register = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
-    val hashed_password = BCrypt.hashpw(request.body.password, BCrypt.gensalt())
-
-    db.create_new_user(request.body.username, hashed_password).map(_ => {
-      Ok("")
-    })
+    verifier.register(request.body.username, request.body.password, request.session)
   }}
 }

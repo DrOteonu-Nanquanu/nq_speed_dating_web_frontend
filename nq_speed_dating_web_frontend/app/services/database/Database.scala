@@ -77,7 +77,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   def create_new_user(username: String, password_hash: String) = {
     Future {
       db.withConnection(connection => {
-        // Check if username is already used
+        // TODO: Check if username is already used
         val username_exists = {
 
         }
@@ -98,6 +98,31 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       })
     }
   }
+
+  def get_user_id(username: String): Future[Option[Database_ID]] = {
+    Future {
+      db.withConnection(connection => {
+        val sql =
+          """
+            |SELECT id
+            |FROM nq_user
+            |WHERE username = ?""".stripMargin
+
+        val statement = connection.prepareStatement(sql)
+        statement.setString(1, username)
+
+        val query_result = statement.executeQuery()
+
+        if (query_result.next()) {
+          Some(Database_ID(query_result.getInt(1)))
+        }
+        else {
+          None
+        }
+      })
+    }
+  }
+
 
   def set_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Unit = {
     Future {
@@ -213,7 +238,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         stmt.setInt(1, foi_parent_id.id)
         stmt.setInt(2, user_id.id)
 
-        println(stmt.executeUpdate())
+        stmt.executeUpdate()
+
+        ()
       })
     }
   }
