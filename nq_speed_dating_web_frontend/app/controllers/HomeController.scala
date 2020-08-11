@@ -26,16 +26,20 @@ class HomeController @Inject()(
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) extends BaseController {
+  def index() = userAction { implicit request: UserRequest[_] =>
+    request.userInfo match {
+      case Some(user_info: UserInfo) => Redirect("/welcome_page")
+      case None => Ok(views.html.index())
+    }
+  }
 
-  /**
-   * Create an Action to render an HTML page.
-   *
-   * The configuration in the `routes` file means that this method
-   * will be called when the application receives a `GET` request with
-   * a path of `/`.
-   */
-  def index() = Action { implicit request: Request[AnyContent] =>
-      Ok(views.html.index())
+  def welcome_page = userAction { implicit request: UserRequest[_] =>
+    request.userInfo match {
+      case Some(user_info: UserInfo) => {
+        Ok(views.html.welcome_page(user_info.username))
+      }
+      case None => Redirect("/")
+    }
   }
 
   /**

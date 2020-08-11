@@ -57,7 +57,7 @@ class Verification @Inject()(
 ) {
   def set_login_cookie(username: String, user_id: Database_ID, session: Session) = {
     sessionGenerator.createSession(UserInfo(username, user_id)).map({
-      case (session_id, encrypted_cookie) => Ok("logged in!")
+      case (session_id, encrypted_cookie) => Redirect("/")
         .withSession(session + (SESSION_ID -> session_id))
         .withCookies(encrypted_cookie)
     })

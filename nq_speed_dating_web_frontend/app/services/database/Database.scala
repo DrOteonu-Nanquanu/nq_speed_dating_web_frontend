@@ -164,7 +164,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
     val sql =
-      """
+      s"""
         |SELECT parent.id AS parent_id
         |FROM field_of_interest parent, field_of_interest child
         |WHERE
@@ -178,12 +178,20 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           |) AND
           |parent.depth_in_tree IN(
             |SELECT current_depth_in_tree FROM nq_user WHERE id = ?
-          |);
+          |)
+          |AND (parent.depth_in_tree = 0 OR parent.id IN(
+            |SELECT interest_id
+            |FROM interest_level
+            |WHERE
+              |user_id = ? AND
+              |NOT level_of_interest = ${Interest_level.no_interest.id}
+          |));
         |""".stripMargin
 
     val stmt = connection.prepareStatement(sql)
     stmt.setInt(1, user_id.id)
     stmt.setInt(2, user_id.id)
+    stmt.setInt(3, user_id.id)
 
     val query_result = stmt.executeQuery()
 

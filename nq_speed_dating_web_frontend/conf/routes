@@ -6,6 +6,7 @@
 GET  /                          controllers.HomeController.index
 GET  /form                      controllers.HomeController.form
 GET  /move_to_next_parent       controllers.HomeController.move_to_next_parent
+GET  /welcome_page              controllers.HomeController.welcome_page
 
 # Expertises
 PUT     /expertise/update   controllers.HomeController.update_expertise
