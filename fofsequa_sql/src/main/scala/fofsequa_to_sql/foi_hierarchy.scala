@@ -6,6 +6,7 @@ import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
+import org.nanquanu.fofsequa_reasoner.eprover.QuotedString
 
 object Foi_hierarchy {
   // Constructs a list of SQL queries for creating the required tables
@@ -62,16 +63,16 @@ object Foi_hierarchy {
     // Query fields and their parents
     val field_with_parent = ("all", None) :: (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.sub_field_of) match {
       case Success(value) => value
-      case f: Failure[List[List[String]]] => return Failure(f.exception)
+      case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
-    .map(answer_tuple => (answer_tuple(0), Some(answer_tuple(1))))
+    .map(answer_tuple => (answer_tuple(0).toString, Some(answer_tuple(1).toString)))
 
     // Query nanquanu projects and the interested fields
     val project_interesting_to = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.nq_project_with_parent) match {
       case Success(value) => value
-      case f: Failure[List[List[String]]] => return Failure(f.exception)
+      case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
-    .map(answer_tuple => (answer_tuple(0), answer_tuple(1)))
+    .map(answer_tuple => (answer_tuple(0).toString, answer_tuple(1).toString))
 
     // Assign IDs to fields
     val id_of_field = assign_id(field_with_parent.map(
