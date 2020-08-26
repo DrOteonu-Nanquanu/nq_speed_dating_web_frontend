@@ -68,7 +68,7 @@ object Foi_hierarchy {
       case Success(value) => value
       case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
-      .map(answer_tuple => (answer_tuple(0), Some(answer_tuple(1))))
+      .map(answer_tuple => (answer_tuple(0).text, Some(answer_tuple(1).text)))
 
     // Query nanquanu projects and the interested fields
     val project_interesting_to = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.nq_project_with_parent) match {
