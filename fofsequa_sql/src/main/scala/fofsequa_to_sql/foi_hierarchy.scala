@@ -2,11 +2,14 @@ package fofsequa_to_sql
 import org.nanquanu.fofsequa._
 import org.nanquanu.fofsequa_reasoner.FofsequaReasoner
 import org.nanquanu.fofsequa_reasoner.errors.Query_parse_exception
+import org.nanquanu.fofsequa_sql.errors.Kb_exception
 
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 import org.nanquanu.fofsequa_reasoner.eprover.QuotedString
+
+import scala.collection.immutable.HashMap
 
 object Foi_hierarchy {
   // Constructs a list of SQL queries for creating the required tables
@@ -78,11 +81,14 @@ object Foi_hierarchy {
       .map(get_text_of_first_two_elements)
 
     // Query names associated with each constant
-    val constant_with_names = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.project_or_foi_with_name) match {
+    val constants_with_name = ("all", "All") :: (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.project_or_foi_with_name) match {
       case Success(value) => value
       case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
       .map(get_text_of_first_two_elements)
+
+    // Create mapping from constant to name
+    val name_of_constant = HashMap.from(constants_with_name)
 
     // Assign IDs to fields
     val id_of_field = assign_id(field_with_parent.map(
@@ -119,13 +125,18 @@ object Foi_hierarchy {
     // Create queries to insert fields of interest
     val foi_queries = foi_with_parent_and_depth.map({case (field_name, parent_name, depth) => {
       val id = id_of_field(field_name)
+      val name = name_of_constant.get(field_name) match {
+        case Some(name) => name
+        case None => return Failure  (Kb_exception(f"No name given for constant $field_name"))
+      }
+
       val parent_id = parent_name match {
         case Some(name) => id_of_field(name)
         case None => "NULL"
       }
       s"""
         |INSERT INTO field_of_interest
-        |VALUES ($id, '$field_name', $parent_id, $depth);""".stripMargin
+        |VALUES ($id, '$name', $parent_id, $depth);""".stripMargin
     }})
 
     // Assign IDs to projects
@@ -139,9 +150,14 @@ object Foi_hierarchy {
     val project_queries = projects.map(project_name => {
       val id = id_of_project(project_name)
 
+      val name = name_of_constant.get(project_name) match {
+        case Some(name) => name
+        case None => return Failure  (Kb_exception(f"No name given for constant $project_name"))
+      }
+
       s"""
          |INSERT INTO nq_project
-         |VALUES ($id, '$project_name');""".stripMargin
+         |VALUES ($id, '$name');""".stripMargin
     })
 
     var next_id = 0
