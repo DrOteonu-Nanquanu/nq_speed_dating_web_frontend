@@ -33,8 +33,9 @@ object Foi_hierarchy {
   )
 
   object Queries {
-    val sub_field_of = FolseqParser.parse_statement_or_throw("![sub_field, parent from s_]: Sub_field_of(sub_field, parent)")
-    val nq_project_with_parent = FolseqParser.parse_statement_or_throw("![nq_project, sub_field from s_]: Interesting_to(nq_project, sub_field)")
+    val sub_field_of: Statement = FolseqParser.parse_statement_or_throw("![sub_field, parent from s_]: Sub_field_of(sub_field, parent)")
+    val nq_project_with_parent: Statement = FolseqParser.parse_statement_or_throw("![nq_project, sub_field from s_]: Interesting_to(nq_project, sub_field)")
+    val project_or_foi_with_name: Statement = FolseqParser.parse_statement_or_throw("![constant, name from s_]: Has_name(constant, name)")
   }
 
   private def assign_id[T](iterable: Iterable[T]): mutable.HashMap[T, Int] = {
@@ -60,19 +61,28 @@ object Foi_hierarchy {
       finally file.close()
     }
 
+    def get_text_of_first_two_elements(answer_tuple: List[QuotedString]): (String, String) = (answer_tuple(0).text, answer_tuple(1).text)
+
     // Query fields and their parents
     val field_with_parent = ("all", None) :: (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.sub_field_of) match {
       case Success(value) => value
       case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
-    .map(answer_tuple => (answer_tuple(0).text, Some(answer_tuple(1).text)))
+      .map(answer_tuple => (answer_tuple(0), Some(answer_tuple(1))))
 
     // Query nanquanu projects and the interested fields
     val project_interesting_to = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.nq_project_with_parent) match {
       case Success(value) => value
       case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
     })
-    .map(answer_tuple => (answer_tuple(0).text, answer_tuple(1).text))
+      .map(get_text_of_first_two_elements)
+
+    // Query names associated with each constant
+    val constant_with_names = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.project_or_foi_with_name) match {
+      case Success(value) => value
+      case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
+    })
+      .map(get_text_of_first_two_elements)
 
     // Assign IDs to fields
     val id_of_field = assign_id(field_with_parent.map(
