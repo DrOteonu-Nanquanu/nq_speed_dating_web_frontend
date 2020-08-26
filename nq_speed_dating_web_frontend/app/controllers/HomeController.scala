@@ -26,7 +26,10 @@ class HomeController @Inject()(
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) extends BaseController {
-  def index() = userAction { implicit request: UserRequest[_] =>
+
+
+
+  def index(login_error: Login_error) = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(user_info: UserInfo) => Redirect("/welcome_page")
       case None => Ok(views.html.index())
@@ -74,9 +77,7 @@ class HomeController @Inject()(
   def update_expertise() = {
     userAction(parse.json) {
       request: UserRequest[JsValue] => {
-
         request.userInfo match {
-          case None => Unauthorized("you're not logged in")
           case Some(user_info) =>
             if (request.hasBody) {
               // Read expertise_id and level_of_interest from body
@@ -89,9 +90,6 @@ class HomeController @Inject()(
                   (json \ "level_of_interest").get match {
                     case JsString(new_level) => {
                       Interest_level.from_name(new_level) match {
-                        case None => {
-                          BadRequest("new_level is not a valid Expertise_Level")
-                        }
                         case Some(level) => {
                           // forward to function in model that updates the database
                           user_expertise_data.set_expertise_level(
@@ -101,6 +99,9 @@ class HomeController @Inject()(
                           )
 
                           Ok("")
+                        }
+                        case None => {
+                          BadRequest("new_level is not a valid Expertise_Level")
                         }
                       }
                     }
@@ -114,6 +115,7 @@ class HomeController @Inject()(
               // TODO: error
               BadRequest("response has no body")
             }
+          case None => Unauthorized("you're not logged in")
         }
       }
     }
@@ -141,8 +143,6 @@ class HomeController @Inject()(
     val Login_info(username, password) = request.body
     verifier.login(username, password, request.session)
   }}
-
-
 
   val register_form = login_form
 

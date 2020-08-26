@@ -5,4 +5,11 @@ Sub_field_of('physics', 'technical');
 
 Interesting_to('asofus', 'mathematics');
 Interesting_to('coin_dedureas', 'logic');
-Interesting_to('coin_dedureas', 'physics')
+Interesting_to('coin_dedureas', 'physics');
+
+Has_name('technical', "Technical");
+Has_name('mathematics', "Mathematics");
+Has_name('logic', "Logic");
+Has_name('physics', "Physics");
+Has_name('asofus', "Asofus");
+Has_name('coin_dedureas', "Coin-dedureas")

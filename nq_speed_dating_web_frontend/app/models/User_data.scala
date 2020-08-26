@@ -84,10 +84,16 @@ class Verification @Inject()(
   def register(username: String, password: String, session: Session) = {
     val hashed_password = BCrypt.hashpw(password, BCrypt.gensalt())
 
-    db.create_new_user(username, hashed_password).flatMap(_ =>
-      db.get_user_id(username).flatMap {
-        case Some(id) => set_login_cookie(username, id, session)
-        case None => throw new Exception("Account creation failed: username isn't actually present in the database")
-      })
+    db.create_new_user(username, hashed_password).flatMap(successful =>
+      if(!successful) {
+        Future { Ok("username already present") }
+      }
+      else {
+        db.get_user_id(username).flatMap {
+          case Some(id) => set_login_cookie(username, id, session)
+          case None => throw new Exception("Account creation failed: username isn't actually present in the database")
+        }
+      }
+    )
   }
 }

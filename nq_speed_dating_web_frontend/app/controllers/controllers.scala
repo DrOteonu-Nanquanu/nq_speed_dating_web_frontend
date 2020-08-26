@@ -70,7 +70,7 @@ package object controllers {
             // Let's redirect them back to the home page without any session cookie stuff.
             Future.successful {
               discardingSession {
-                Redirect(routes.HomeController.index())
+                Redirect("/")
               }.flashing(FLASH_ERROR -> "Your session has expired!")
             }
         }
