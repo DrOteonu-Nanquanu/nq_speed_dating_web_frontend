@@ -65,13 +65,13 @@ class Verification @Inject()(
 
   def login(username: String, password: String, session: Session): Future[Result] = {
     db.get_user_verification_data(username).flatMap({
-      case List() => Future{ Ok("Username not found") }
+      case List() => Future{ Redirect("/?login_error=Username not found") }
       case (user: User) :: List() => {
         if (BCrypt.checkpw(password, user.password_hash)) {
           set_login_cookie(username, user.database_ID, session)
         }
         else {
-          Future { Ok("Incorrect password") }
+          Future { Redirect("/?login_error=Incorrect password") }
         }
       }
       case _ => {

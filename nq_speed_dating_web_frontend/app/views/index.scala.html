@@ -1,7 +1,12 @@
-@()
+@(optional_login_error: Optional_login_error)
 
 @main("Welcome to NQ Project Speed Dating") {<script></script>} {
   <h1>Welcome to NQ Project Speed Dating!</h1>
+
+  @{optional_login_error.login_error match {
+    case Some(error) => error
+    case None => ""
+  }}
 
   @login_form()
 

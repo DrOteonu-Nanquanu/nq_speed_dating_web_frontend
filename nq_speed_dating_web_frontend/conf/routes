@@ -3,7 +3,7 @@
 # https://www.playframework.com/documentation/latest/ScalaRouting
 # ~~~~
 
-GET  /              controllers.HomeController.index(login_error: models.Login_error)
+GET  /              controllers.HomeController.index(login_error: models.Optional_login_error)
 GET  /form                      controllers.HomeController.form
 GET  /move_to_next_parent       controllers.HomeController.move_to_next_parent
 GET  /welcome_page              controllers.HomeController.welcome_page

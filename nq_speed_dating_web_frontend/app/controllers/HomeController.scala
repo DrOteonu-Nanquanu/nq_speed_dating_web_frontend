@@ -29,10 +29,10 @@ class HomeController @Inject()(
 
 
 
-  def index(login_error: Login_error) = userAction { implicit request: UserRequest[_] =>
+  def index(login_error: Optional_login_error) = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(user_info: UserInfo) => Redirect("/welcome_page")
-      case None => Ok(views.html.index())
+      case None => Ok(views.html.index(login_error))
     }
   }
 
