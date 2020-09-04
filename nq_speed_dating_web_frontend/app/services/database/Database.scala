@@ -5,7 +5,7 @@ import java.sql.{Connection, ResultSet}
 import akka.actor.ActorSystem
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.{Field_Of_Expertise, Interest_level, User}
+import models.{Field_Of_Expertise, Interest_level, Nq_project, User}
 import models.database.Database_ID
 import play.api.db.Database
 
@@ -275,6 +275,34 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         result
       })
     }
+
+  def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
+    db.withConnection(connection => {
+      val sql =
+        """
+          |SELECT project.name, project.id
+          |FROM nq_project project
+          |INNER JOIN project_interesting_to pio
+          |ON project.id = pio.nq_project_id
+          |INNER JOIN nq_user
+          |ON nq_user.current_parent_id = pio.field_of_interest_id
+          |WHERE nq_user.id = ?;
+          |""".stripMargin
+
+      val stmt = connection.prepareStatement(sql)
+      stmt.setInt(1, user_id.id)
+
+      val query_result = stmt.executeQuery()
+
+      var result = List[Nq_project]()
+
+      while(query_result.next()) {
+        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), None, "TODO")
+      }
+
+      result
+    })
+  }
 
 /*  def query[R](sql: String, result_processor: ResultSet => R): Future[List[R]] = Future {
     db.withConnection(connection => {

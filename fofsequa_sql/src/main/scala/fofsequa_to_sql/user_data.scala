@@ -16,6 +16,13 @@ object User_data {
       Field("user_id", "INT NOT NULL"),
       Field("interest_id", "INT NOT NULL"),
       Field("level_of_interest", "INT NOT NULL"),
+    ), Some("id")),
+
+    Table("project_interest_level", List(
+      Field("id", "SERIAL NOT NULL"),
+      Field("user_id", "INT NOT NULL"),
+      Field("project_id", "INT NOT NULL"),
+      Field("level_of_interest", "INT NOT NULL"),
     ), Some("id"))
   )
 }

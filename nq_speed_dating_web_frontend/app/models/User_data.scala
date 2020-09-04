@@ -27,8 +27,6 @@ class User_expertise_data @Inject()(
     db.set_interesting_to(user, expertise, expertise_level)
   }
 
-  def get_expertise_level(user: User, expertise: Expertise): Interest_level.Interest_level = Interest_level.no_interest // TODO
-
   def next_foi_parent(user: Database_ID): Future[Option[Database_ID]] = {
     db.next_foi_parent(user).flatMap(next_parent_id => {
       val future = next_parent_id match {

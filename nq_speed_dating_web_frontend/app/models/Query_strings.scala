@@ -11,7 +11,7 @@ object Optional_login_error {
     override def bind(key: String, params: Map[String, Seq[String]]): Option[Either[String, Optional_login_error]] =
       params.get("login_error") match {
         case Some(from) if from.nonEmpty => Some(Right(Optional_login_error(Some(from.head))))
-        case _ => Some(Right(Optional_login_error(None))) // Left("parameter not present")
+        case _ => Some(Right(Optional_login_error(None)))
       }
 
     override def unbind(key: String, ageRange: Optional_login_error): String = {
