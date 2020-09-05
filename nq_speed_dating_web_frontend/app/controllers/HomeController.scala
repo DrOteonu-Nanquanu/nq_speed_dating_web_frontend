@@ -111,7 +111,6 @@ class HomeController @Inject()(
               }
             }
             else {
-              // TODO: error
               BadRequest("response has no body")
             }
         }

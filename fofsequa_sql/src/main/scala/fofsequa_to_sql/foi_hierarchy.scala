@@ -26,6 +26,7 @@ object Foi_hierarchy {
     Table("nq_project", List(
       Field("id", "INT NOT NULL"),
       Field("name", "VARCHAR(255) NOT NULL"),
+      Field("description", "VARCHAR NOT NULL")
     ), Some("id")),
 
     Table("project_interesting_to", List(
