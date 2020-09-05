@@ -26,10 +26,13 @@ class HomeController @Inject()(
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) extends BaseController {
-  def index() = userAction { implicit request: UserRequest[_] =>
+
+
+
+  def index(login_error: Optional_login_error) = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(user_info: UserInfo) => Redirect("/welcome_page")
-      case None => Ok(views.html.index())
+      case None => Ok(views.html.index(login_error))
     }
   }
 
@@ -49,8 +52,10 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
-          user_expertise_data.get_current_fois(user_id).map(fois => Ok(views.html.form(fois)))
-
+          user_expertise_data.get_current_fois(user_id).flatMap(fois =>
+            db.get_current_nq_projects(user_id).map(projects => Ok(views.html.form(fois, projects)))
+          )
+          
         case None => Future { Unauthorized("you're not logged in") }
       }
     }
@@ -74,9 +79,7 @@ class HomeController @Inject()(
   def update_expertise() = {
     userAction(parse.json) {
       request: UserRequest[JsValue] => {
-
         request.userInfo match {
-          case None => Unauthorized("you're not logged in")
           case Some(user_info) =>
             if (request.hasBody) {
               // Read expertise_id and level_of_interest from body
@@ -89,9 +92,6 @@ class HomeController @Inject()(
                   (json \ "level_of_interest").get match {
                     case JsString(new_level) => {
                       Interest_level.from_name(new_level) match {
-                        case None => {
-                          BadRequest("new_level is not a valid Expertise_Level")
-                        }
                         case Some(level) => {
                           // forward to function in model that updates the database
                           user_expertise_data.set_expertise_level(
@@ -101,6 +101,9 @@ class HomeController @Inject()(
                           )
 
                           Ok("")
+                        }
+                        case None => {
+                          BadRequest("new_level is not a valid Expertise_Level")
                         }
                       }
                     }
@@ -113,6 +116,7 @@ class HomeController @Inject()(
             else {
               BadRequest("response has no body")
             }
+          case None => Unauthorized("you're not logged in")
         }
       }
     }
@@ -140,8 +144,6 @@ class HomeController @Inject()(
     val Login_info(username, password) = request.body
     verifier.login(username, password, request.session)
   }}
-
-
 
   val register_form = login_form
 

@@ -1,4 +1,4 @@
-@(expertise: models.Field_Of_Expertise)
+@(item: models.Form_item)
 
 @level_of_interest_button(value: String, name: String, selected: Boolean) = {
     <div>
@@ -8,14 +8,20 @@
 }
 
 <div>
-    <div style="font-weight: bold">@expertise.name</div>
+    <div style="font-weight: bold">@item.name</div>
+    <i>
+        @{ item.optional_description match {
+            case Some(descr) => descr
+            case None => ""
+        }}
+    </i>
     <form>
-        <input type="hidden" id="expertise_id" value="@expertise.id.id">
+        <input type="hidden" id="expertise_id" value="@item.id.id">
 
-        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", expertise.interest_level == Some(models.Interest_level.some_expertise))
-        @level_of_interest_button("interested", "I am interested in developing myself in this topic", expertise.interest_level == Some(models.Interest_level.interested))
-        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic", expertise.interest_level == Some(models.Interest_level.sympathise))
-        @level_of_interest_button("no_interest", "I am not (much) interested in this topic", expertise.interest_level == Some(models.Interest_level.no_interest))
+        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", item.interest_level == Some(models.Interest_level.some_expertise))
+        @level_of_interest_button("interested", "I am interested in developing myself in this topic", item.interest_level == Some(models.Interest_level.interested))
+        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic", item.interest_level == Some(models.Interest_level.sympathise))
+        @level_of_interest_button("no_interest", "I am not (much) interested in this topic", item.interest_level == Some(models.Interest_level.no_interest))
     </form>
     <br>
 </div>

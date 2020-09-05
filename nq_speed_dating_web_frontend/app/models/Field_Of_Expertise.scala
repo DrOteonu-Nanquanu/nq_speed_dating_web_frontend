@@ -3,11 +3,20 @@ package models
 import models.Interest_level.Interest_level
 import models.database.Database_ID
 
-case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Option[Interest_level])
+case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Option[Interest_level]) extends Form_item {
+  def optional_description: Option[Nothing] = None
+}
 
-case class Expertise_ID(id: Int)
+case class Nq_project(name: String, id: Database_ID, interest_level: Option[Interest_level], description: String) extends Form_item {
+  def optional_description: Option[String] = Some(description)
+}
 
-case class Person_ID(id: Int)
+trait Form_item {
+  def name: String
+  def id: Database_ID
+  def interest_level: Option[Interest_level]
+  def optional_description: Option[String]
+}
 
 object Interest_level extends Enumeration {
   type Interest_level = Value

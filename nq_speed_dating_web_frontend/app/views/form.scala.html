@@ -1,12 +1,14 @@
-@(expertises: Seq[models.Field_Of_Expertise])
-
-
+@(expertises: Seq[models.Field_Of_Expertise], nq_projects: Seq[models.Nq_project])
 
 @main("Expertises Form"){<script src="assets/ts/form.js"></script>}{
+    @for(project <- nq_projects) {
+        @expertise(project)
+    }
+
     @for(expertise_data <- expertises) {
         @expertise(expertise_data)
     }
 
-<a href="/move_to_next_parent"><button>Done</button></a>
+    <a href="/move_to_next_parent"><button>Done</button></a>
 }
 

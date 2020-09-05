@@ -5,7 +5,7 @@ import java.sql.{Connection, ResultSet}
 import akka.actor.ActorSystem
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.{Field_Of_Expertise, Interest_level, User}
+import models.{Field_Of_Expertise, Interest_level, Nq_project, User}
 import models.database.Database_ID
 import play.api.db.Database
 
@@ -17,33 +17,7 @@ class DatabaseExecutionContext @Inject()(system: ActorSystem) extends CustomExec
 
 @Singleton
 class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecutionContext: DatabaseExecutionContext) {
-  def print_project_names() = {
-    println("print_project_names")
-
-    Future {
-      println("print_project_names Future")
-      db.withConnection(connection => {
-        println("print_project_names Future Connection")
-
-        val stmt = connection.createStatement();
-        val sql =
-          """
-            |SELECT *
-            |FROM field_of_interest;""".stripMargin
-        var query_result = stmt.executeQuery(sql)
-
-        while(query_result.next()) {
-          val name = query_result.getString("name")
-          println(name)
-        }
-
-        stmt.close()
-
-        1 + 1
-      })
-    }(databaseExecutionContext)
-  }
-
+  // Returns the username, id and password hash of a user
   def get_user_verification_data(username: String): Future[List[User]] = {
     Future {
       db.withConnection(connection => {
@@ -74,31 +48,49 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+  // Creates a new user and returns true if the username is unique. Otherwise, no user is created and false is returned
   def create_new_user(username: String, password_hash: String) = {
     Future {
       db.withConnection(connection => {
         // TODO: Check if username is already used
         val username_exists = {
+          val sql =
+            """
+              |SELECT id
+              |FROM nq_user
+              |WHERE username = ?
+              |""".stripMargin
 
+          val stmt = connection.prepareStatement(sql)
+          stmt.setString(1, username)
+
+          val query_result = stmt.executeQuery()
+
+          query_result.next() // Whether there is at least one user found with the same username
         }
 
-        val sql =
-          """
-            |INSERT INTO nq_user(username, password_hash)
-            |VALUES (?, ?)""".stripMargin
+        if(username_exists) {
+          false
+        }
+        else {
+          val sql =
+            """
+              |INSERT INTO nq_user(username, password_hash)
+              |VALUES (?, ?)""".stripMargin
 
+          val statement = connection.prepareStatement(sql)
+          statement.setString(1, username)
+          statement.setString(2, password_hash)
 
-        val statement = connection.prepareStatement(sql)
-        statement.setString(1, username)
-        statement.setString(2, password_hash)
+          statement.executeUpdate()
 
-        statement.executeUpdate()
-
-        ()
+          true
+        }
       })
     }
   }
 
+  // Returns the id of a user given a username, or None if there is no user with that username
   def get_user_id(username: String): Future[Option[Database_ID]] = {
     Future {
       db.withConnection(connection => {
@@ -122,7 +114,6 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       })
     }
   }
-
 
   def set_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Unit = {
     Future {
@@ -253,8 +244,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
-    Future {
+  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = Future {
       db.withConnection(connection => {
         val sql =
           """
@@ -284,8 +274,34 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
         result
       })
-
     }
+
+  def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
+    db.withConnection(connection => {
+      val sql =
+        """
+          |SELECT project.name, project.id
+          |FROM nq_project project
+          |INNER JOIN project_interesting_to pio
+          |ON project.id = pio.nq_project_id
+          |INNER JOIN nq_user
+          |ON nq_user.current_parent_id = pio.field_of_interest_id
+          |WHERE nq_user.id = ?;
+          |""".stripMargin
+
+      val stmt = connection.prepareStatement(sql)
+      stmt.setInt(1, user_id.id)
+
+      val query_result = stmt.executeQuery()
+
+      var result = List[Nq_project]()
+
+      while(query_result.next()) {
+        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), None, "TODO")
+      }
+
+      result
+    })
   }
 
 /*  def query[R](sql: String, result_processor: ResultSet => R): Future[List[R]] = Future {
