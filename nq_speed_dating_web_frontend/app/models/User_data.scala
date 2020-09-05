@@ -19,7 +19,7 @@ class User_expertise_data @Inject()(
   implicit ec: scala.concurrent.ExecutionContext,
 ){
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
-  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: Interest_level.Interest_level): Unit = {
+  def set_expertise_level(user: Database_ID, expertisze: Database_ID, expertise_level: Interest_level.Interest_level): Unit = {
     println(user.id)
     println(expertise.id)
     println(expertise_level)
@@ -63,13 +63,13 @@ class Verification @Inject()(
 
   def login(username: String, password: String, session: Session): Future[Result] = {
     db.get_user_verification_data(username).flatMap({
-      case List() => Future{ Redirect("/?login_error=Username not found") }
+      case List() => Future{ Redirect("/?login_error=Username+not+found") }
       case (user: User) :: List() => {
         if (BCrypt.checkpw(password, user.password_hash)) {
           set_login_cookie(username, user.database_ID, session)
         }
         else {
-          Future { Redirect("/?login_error=Incorrect password") }
+          Future { Redirect("/?login_error=Incorrect+password") }
         }
       }
       case _ => {
@@ -84,7 +84,7 @@ class Verification @Inject()(
 
     db.create_new_user(username, hashed_password).flatMap(successful =>
       if(!successful) {
-        Future { Ok("username already present") }
+        Future { Redirect("/?login_error=Username+already+taken") }
       }
       else {
         db.get_user_id(username).flatMap {
