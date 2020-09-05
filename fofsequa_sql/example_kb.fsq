@@ -7,6 +7,9 @@ Interesting_to('asofus', 'mathematics');
 Interesting_to('coin_dedureas', 'logic');
 Interesting_to('coin_dedureas', 'physics');
 
+Project_description('asofus', "a cool project involving computers and collective intelligence");
+Project_description('coin_dedureas', "Lorem Ipsum coin-dedureas");
+
 Has_name('technical', "Technical");
 Has_name('mathematics', "Mathematics");
 Has_name('logic', "Logic");

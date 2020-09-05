@@ -19,7 +19,7 @@ class User_expertise_data @Inject()(
   implicit ec: scala.concurrent.ExecutionContext,
 ){
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
-  def set_expertise_level(user: Database_ID, expertisze: Database_ID, expertise_level: Interest_level.Interest_level): Unit = {
+  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: Interest_level.Interest_level): Unit = {
     println(user.id)
     println(expertise.id)
     println(expertise_level)

@@ -7,11 +7,11 @@ function submit_expertise(form: HTMLFormElement) {
         .find(radio_button => radio_button.checked)
         .value;
     
-    const expertise_id = parseInt(inputs
-        .find(input => input.id="expertise_id")
+    const database_id = parseInt(inputs
+        .find(input => input.id="database_id")
         .value);
 
-    console.log(level_of_interest, expertise_id);
+    console.log(level_of_interest, database_id);
     fetch(`../expertise/update`,
         {
             method: 'PUT',
@@ -19,7 +19,7 @@ function submit_expertise(form: HTMLFormElement) {
                 'Content-Type': 'text/json',
             },
             body: JSON.stringify({
-                expertise_id, level_of_interest
+                database_id, level_of_interest
             }),
         }
     ).then(res => {

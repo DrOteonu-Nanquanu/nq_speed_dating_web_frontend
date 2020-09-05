@@ -158,7 +158,7 @@ object Foi_hierarchy {
 
       s"""
          |INSERT INTO nq_project
-         |VALUES ($id, '$name');""".stripMargin
+         |VALUES ($id, '$name', 'todo: query from knowledge base');""".stripMargin
     })
 
     var next_id = 0

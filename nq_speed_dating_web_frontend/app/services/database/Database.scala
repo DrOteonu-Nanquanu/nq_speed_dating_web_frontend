@@ -280,7 +280,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     db.withConnection(connection => {
       val sql =
         """
-          |SELECT project.name, project.id
+          |SELECT project.name, project.id, project.description
           |FROM nq_project project
           |INNER JOIN project_interesting_to pio
           |ON project.id = pio.nq_project_id
@@ -297,7 +297,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       var result = List[Nq_project]()
 
       while(query_result.next()) {
-        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), None, "TODO")
+        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), None, query_result.getString(3))
       }
 
       result

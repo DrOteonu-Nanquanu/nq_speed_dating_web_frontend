@@ -82,12 +82,12 @@ class HomeController @Inject()(
         request.userInfo match {
           case Some(user_info) =>
             if (request.hasBody) {
-              // Read expertise_id and level_of_interest from body
+              // Read database_id and level_of_interest from body
               val json = request.body
 
-              (json \ "expertise_id").get match {
+              (json \ "database_id").get match {
                 case JsNumber(value) => {
-                  val expertise_id = value.intValue
+                  val database_id = value.intValue
 
                   (json \ "level_of_interest").get match {
                     case JsString(new_level) => {
@@ -96,7 +96,7 @@ class HomeController @Inject()(
                           // forward to function in model that updates the database
                           user_expertise_data.set_expertise_level(
                             user_info.id,
-                            Database_ID(expertise_id),
+                            Database_ID(database_id),
                             level
                           )
 
