@@ -4,12 +4,13 @@
 # ~~~~
 
 GET  /              controllers.HomeController.index(login_error: models.Optional_login_error)
-GET  /form                      controllers.HomeController.form
-GET  /move_to_next_parent       controllers.HomeController.move_to_next_parent
 GET  /welcome_page              controllers.HomeController.welcome_page
 
-# Expertises
-PUT     /expertise/update   controllers.HomeController.update_expertise
+# Main form
+GET /form                       controllers.HomeController.form
+GET /move_to_next_parent        controllers.HomeController.move_to_next_parent
+PUT /update_form_item           controllers.HomeController.update_form_item
+
 # Test
 GET     /secret     controllers.HomeController.secret_page
 

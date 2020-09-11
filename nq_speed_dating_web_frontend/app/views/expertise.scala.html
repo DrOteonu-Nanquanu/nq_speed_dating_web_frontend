@@ -17,6 +17,7 @@
     </i>
     <form>
         <input type="hidden" id="database_id" value="@item.id.id">
+        <input type="hidden" id="form_item_type" value="@item.item_type">
 
         @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", item.interest_level == Some(models.Interest_level.some_expertise))
         @level_of_interest_button("interested", "I am interested in developing myself in this topic", item.interest_level == Some(models.Interest_level.interested))

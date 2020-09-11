@@ -11,15 +11,19 @@ function submit_expertise(form: HTMLFormElement) {
         .find(input => input.id="database_id")
         .value);
 
+    const form_item_type = inputs
+        .find(input => input.id === "form_item_type")
+        .value
+
     console.log(level_of_interest, database_id);
-    fetch(`../expertise/update`,
+    fetch("/update_form_item",
         {
             method: 'PUT',
             headers: {
                 'Content-Type': 'text/json',
             },
             body: JSON.stringify({
-                database_id, level_of_interest
+                database_id, level_of_interest, form_item_type
             }),
         }
     ).then(res => {

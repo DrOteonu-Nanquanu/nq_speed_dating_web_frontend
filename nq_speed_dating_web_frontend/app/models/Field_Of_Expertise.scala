@@ -5,10 +5,14 @@ import models.database.Database_ID
 
 case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Option[Interest_level]) extends Form_item {
   def optional_description: Option[Nothing] = None
+
+  override def item_type: String = "expertise"
 }
 
 case class Nq_project(name: String, id: Database_ID, interest_level: Option[Interest_level], description: String) extends Form_item {
   def optional_description: Option[String] = Some(description)
+
+  override def item_type: String = "project"
 }
 
 trait Form_item {
@@ -16,6 +20,7 @@ trait Form_item {
   def id: Database_ID
   def interest_level: Option[Interest_level]
   def optional_description: Option[String]
+  def item_type: String
 }
 
 object Interest_level extends Enumeration {

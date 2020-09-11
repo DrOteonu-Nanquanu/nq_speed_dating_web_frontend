@@ -76,8 +76,8 @@ class HomeController @Inject()(
   /**
    * Updates the level of an expertise for a person to new_level
    */
-  def update_expertise() = {
-    userAction(parse.json) {
+  def update_form_item(): Action[JsValue] = {
+    userAction.async(parse.json) {
       request: UserRequest[JsValue] => {
         request.userInfo match {
           case Some(user_info) =>
@@ -90,33 +90,40 @@ class HomeController @Inject()(
                   val database_id = value.intValue
 
                   (json \ "level_of_interest").get match {
-                    case JsString(new_level) => {
-                      Interest_level.from_name(new_level) match {
-                        case Some(level) => {
-                          // forward to function in model that updates the database
-                          user_expertise_data.set_expertise_level(
-                            user_info.id,
-                            Database_ID(database_id),
-                            level
-                          )
-
-                          Ok("")
-                        }
-                        case None => {
-                          BadRequest("new_level is not a valid Expertise_Level")
+                    case JsString(new_level) => Interest_level.from_name(new_level) match {
+                      case Some(level) => {
+                        (json \ "form_item_type").get match {
+                          case JsString("expertise") => {
+                            // forward to function in model that updates the database
+                            user_expertise_data.set_expertise_level(
+                              user_info.id,
+                              Database_ID(database_id),
+                              level
+                            ).map(_ => Ok(""))
+                          }
+                          case JsString("project") => {
+                            // forward to function in model that updates the database
+                            user_expertise_data.set_project_expertise_level(
+                              user_info.id,
+                              Database_ID(database_id),
+                              level
+                            ).map(_ => Ok(""))
+                          }
+                          case _ => Future { BadRequest("form_item_type is invalid") }
                         }
                       }
+                      case None => Future { BadRequest("new_level is not a valid Expertise_Level") }
                     }
-                    case _ => BadRequest("level_of_interest isn't a string")
+                    case _ => Future { BadRequest("level_of_interest isn't a string") }
                   }
                 }
-                case _ => BadRequest("expertise_id isn't a number")
+                case _ => Future { BadRequest("expertise_id isn't a number") }
               }
             }
             else {
-              BadRequest("response has no body")
+              Future { BadRequest("response has no body") }
             }
-          case None => Unauthorized("you're not logged in")
+          case None => Future { Unauthorized("you're not logged in") }
         }
       }
     }

@@ -115,12 +115,12 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  def set_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Unit = {
+  def set_interesting_to(table_name: String, id_field: String)(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
     Future {
       db.withConnection(connection => {
         val update_sql =
-          """
-            |UPDATE interest_level SET level_of_interest = ? WHERE user_id = ? AND interest_id = ?;
+          s"""
+            |UPDATE $table_name SET level_of_interest = ? WHERE user_id = ? AND $id_field = ?;
             |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
@@ -134,8 +134,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           case 0 => {
             // Execute INSERT statement
             val insert_sql =
-              """
-                |INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES (?, ?, ?);
+              s"""
+                |INSERT INTO $table_name(user_id, $id_field, level_of_interest) VALUES (?, ?, ?);
                 |""".stripMargin
 
             val insert_stmt = connection.prepareStatement(insert_sql)
@@ -153,19 +153,43 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+
+
+  val set_project_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("project_interest_level", "project_id")
+  val set_foi_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("interest_level", "interest_id")
+
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
     val sql =
       s"""
-        |SELECT parent.id AS parent_id
-        |FROM field_of_interest parent, field_of_interest child
+        |SELECT parent.id
+        |FROM field_of_interest parent
         |WHERE
-          |child.parent_id = parent.id AND
-          |NOT EXISTS(
-            |SELECT *
-            |FROM interest_level
-            |WHERE
-              |interest_level.user_id = ? AND
-              |interest_level.interest_id = child.id
+          |(
+            |EXISTS(                                                          -- Test if there are any nq_projects related to parent
+              |SELECT *
+              |FROM project_interesting_to pit
+              |INNER JOIN nq_project ON nq_project.id = pit.nq_project_id
+              |WHERE
+                |pit.field_of_interest_id = parent.id AND
+                |NOT EXISTS (                                                 -- The nq_project should not have an assigned level of interest yet
+                  |SELECT *
+                  |FROM project_interest_level pil
+                  |WHERE pil.user_id = ? AND pil.project_id = nq_project.id
+                |)
+            |)
+            |OR
+            |EXISTS (
+              |SELECT *
+              |FROM field_of_interest child
+              |INNER JOIN interest_level il ON il.interest_id = child.id
+              |WHERE
+                |child.parent_id = parent.id AND
+                |NOT EXISTS (
+                  |SELECT *
+                  |FROM interest_level il
+                  |WHERE il.interest_id = child.id AND il.user_id = ?
+                |)
+            |)
           |) AND
           |parent.depth_in_tree IN(
             |SELECT current_depth_in_tree FROM nq_user WHERE id = ?
@@ -183,11 +207,12 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     stmt.setInt(1, user_id.id)
     stmt.setInt(2, user_id.id)
     stmt.setInt(3, user_id.id)
+    stmt.setInt(4, user_id.id)
 
     val query_result = stmt.executeQuery()
 
     if (query_result.next()) {
-      Some(Database_ID(query_result.getInt("parent_id")))
+      Some(Database_ID(query_result.getInt(1)))
     }
     else {
       None
@@ -263,12 +288,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         var result = List[Field_Of_Expertise]()
 
         while(query_result.next()) {
-          val maybe_level_of_interest = query_result.getString("level_of_interest") match { // Using getString because getInt doesn't return null but 0 when it isn't present
-            case null => None
-            case value => Some(
-              Interest_level(value.toInt)
-            )
-          }
+          val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString("level_of_interest"))
           result ::= Field_Of_Expertise(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
         }
 
@@ -276,17 +296,26 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       })
     }
 
+  def nullable_string_to_optional_interest_level(nullable_string: String): Option[models.Interest_level.Value] = nullable_string match {
+    case null => None
+    case value => Some(
+      Interest_level(value.toInt)
+    )
+
+  }
+
   def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
     db.withConnection(connection => {
       val sql =
         """
-          |SELECT project.name, project.id, project.description
+          |SELECT project.name, project.id, project.description, pil.level_of_interest
           |FROM nq_project project
           |INNER JOIN project_interesting_to pio
           |ON project.id = pio.nq_project_id
           |INNER JOIN nq_user
           |ON nq_user.current_parent_id = pio.field_of_interest_id
-          |WHERE nq_user.id = ?;
+          |LEFT JOIN project_interest_level pil ON project.id = pil.project_id
+          |WHERE nq_user.id = ? AND pil.user_id = nq_user.id;
           |""".stripMargin
 
       val stmt = connection.prepareStatement(sql)
@@ -297,7 +326,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       var result = List[Nq_project]()
 
       while(query_result.next()) {
-        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), None, query_result.getString(3))
+        val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString(4))
+
+        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), maybe_level_of_interest, query_result.getString(3))
       }
 
       result
