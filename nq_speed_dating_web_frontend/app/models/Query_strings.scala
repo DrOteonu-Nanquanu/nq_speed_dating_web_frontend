@@ -19,4 +19,3 @@ object Optional_login_error {
     }
   }
 }
-

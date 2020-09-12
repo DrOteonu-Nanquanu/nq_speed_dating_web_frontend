@@ -44,14 +44,16 @@ class User_expertise_data @Inject()(
     db.get_current_fois(user_id)
 }
 
-abstract sealed class Login_result
+sealed trait Login_result
 case class Username_not_found() extends Login_result
 case class Incorrect_password() extends Login_result
-case class Login_successful(session_creator: Verification.Session_creator) extends Login_result
 
-abstract sealed class Register_result
+// session_creator will update the user's session to contain the new username and corresponding database_id.
+case class Login_successful(session_creator: Verification.Session_creator) extends Login_result with Register_result
+
+sealed trait Register_result
 case class Username_taken() extends  Register_result
-case class Register_successful(session_creator: Verification.Session_creator) extends  Register_result
+// Don't forget: Login_successful also extends Register_result
 
 @Singleton
 class Verification @Inject()(
@@ -60,7 +62,7 @@ class Verification @Inject()(
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) {
-
+  // Returns a function that will transform a Result into a Result with an updated Session containing the username and the user_id
   def set_login_cookie(username: String, user_id: Database_ID, session: Session): Future[Verification.Session_creator] = {
     sessionGenerator.createSession(UserInfo(username, user_id)).map({
       case (session_id, encrypted_cookie) =>
@@ -69,6 +71,7 @@ class Verification @Inject()(
     })
   }
 
+  // Verify username and password. If correct, returns Login_successful(session_creator)
   def login(username: String, password: String, session: Session): Future[Login_result] = {
     db.get_user_verification_data(username).flatMap({
       case List() => Future{ Username_not_found() }// Redirect("/?login_error=Username+not+found") }
@@ -83,6 +86,7 @@ class Verification @Inject()(
     })
   }
 
+  // Create new user if the username isn't already taken
   def register(username: String, password: String, session: Session): Future[Register_result] = {
     val hashed_password = BCrypt.hashpw(password, BCrypt.gensalt())
 
@@ -92,7 +96,7 @@ class Verification @Inject()(
       }
       else {
         db.get_user_id(username).flatMap {
-          case Some(id) => set_login_cookie(username, id, session).map(Register_successful)
+          case Some(id) => set_login_cookie(username, id, session).map(Login_successful)
           case None => throw new Exception("Account creation failed: username isn't actually present in the database")
         }
       }

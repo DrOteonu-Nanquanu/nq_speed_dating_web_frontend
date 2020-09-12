@@ -145,13 +145,13 @@ class HomeController @Inject()(
     })
   }}
 
-  val register_form = login_form
+  val register_form: Form[Login_info] = login_form
 
   // POST action associated with the register form on the index page
   def register: Action[Login_info] = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
     verifier.register(request.body.username, request.body.password, request.session).map({
       case Username_taken() => Redirect("/?login_error=Username+already+taken")
-      case Register_successful(session_creator) => session_creator(Redirect("/welcome_page"))
+      case Login_successful(session_creator) => session_creator(Redirect("/welcome_page"))
     })
   }}
 }
