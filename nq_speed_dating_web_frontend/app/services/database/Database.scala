@@ -181,7 +181,6 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             |EXISTS (
               |SELECT *
               |FROM field_of_interest child
-              |INNER JOIN interest_level il ON il.interest_id = child.id
               |WHERE
                 |child.parent_id = parent.id AND
                 |NOT EXISTS (
@@ -301,7 +300,6 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     case value => Some(
       Interest_level(value.toInt)
     )
-
   }
 
   def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
@@ -314,8 +312,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           |ON project.id = pio.nq_project_id
           |INNER JOIN nq_user
           |ON nq_user.current_parent_id = pio.field_of_interest_id
-          |LEFT JOIN project_interest_level pil ON project.id = pil.project_id
-          |WHERE nq_user.id = ? AND pil.user_id = nq_user.id;
+          |LEFT JOIN project_interest_level pil ON project.id = pil.project_id AND pil.user_id = nq_user.id
+          |WHERE nq_user.id = ?;
           |""".stripMargin
 
       val stmt = connection.prepareStatement(sql)
