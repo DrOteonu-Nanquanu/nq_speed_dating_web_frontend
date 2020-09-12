@@ -40,6 +40,7 @@ object Foi_hierarchy {
     val sub_field_of: Statement = FolseqParser.parse_statement_or_throw("![sub_field, parent from s_]: Sub_field_of(sub_field, parent)")
     val nq_project_with_parent: Statement = FolseqParser.parse_statement_or_throw("![nq_project, sub_field from s_]: Interesting_to(nq_project, sub_field)")
     val project_or_foi_with_name: Statement = FolseqParser.parse_statement_or_throw("![constant, name from s_]: Has_name(constant, name)")
+    val project_with_description: Statement = FolseqParser.parse_statement_or_throw("![project, description from s_]: Project_description(project, description)")
   }
 
   private def assign_id[T](iterable: Iterable[T]): mutable.HashMap[T, Int] = {
@@ -88,8 +89,17 @@ object Foi_hierarchy {
     })
       .map(get_text_of_first_two_elements)
 
+    val project_with_description = (FofsequaReasoner.evaluate_to_answer_tuples(kb, Queries.project_with_description) match {
+      case Success(value) => value
+      case f: Failure[List[List[QuotedString]]] => return Failure(f.exception)
+    })
+      .map(get_text_of_first_two_elements)
+
     // Create mapping from constant to name
     val name_of_constant = HashMap.from(constants_with_name)
+
+    // Create mapping from project to description
+    val description_of_project = HashMap.from(project_with_description)
 
     // Assign IDs to fields
     val id_of_field = assign_id(field_with_parent.map(
@@ -148,25 +158,30 @@ object Foi_hierarchy {
     val id_of_project = assign_id(projects)
 
     // Create queries to insert projects
-    val project_queries = projects.map(project_name => {
-      val id = id_of_project(project_name)
+    val project_queries = projects.map(project => {
+      val id = id_of_project(project)
 
-      val name = name_of_constant.get(project_name) match {
+      val name = name_of_constant.get(project) match {
         case Some(name) => name
-        case None => return Failure  (Kb_exception(f"No name given for constant $project_name"))
+        case None => return Failure  (Kb_exception(f"No name given for project $project"))
+      }
+
+      val description = description_of_project.get(project) match {
+        case Some(descr) => descr
+        case None => return Failure(Kb_exception(f"No description given for project $project"))
       }
 
       s"""
          |INSERT INTO nq_project
-         |VALUES ($id, '$name', 'todo: query from knowledge base');""".stripMargin
+         |VALUES ($id, '$name', '$description');""".stripMargin
     })
 
     var next_id = 0
 
     // Create queries to insert relations between NQ projects and Fields of interest
-    val interesting_to_queries = project_interesting_to.map({case (project_name, foi_name) => {
-      val project_id = id_of_project(project_name)
-      val foi_id = id_of_field(foi_name)
+    val interesting_to_queries = project_interesting_to.map({case (project, foi) => {
+      val project_id = id_of_project(project)
+      val foi_id = id_of_field(foi)
       val id = next_id
       next_id += 1
 
