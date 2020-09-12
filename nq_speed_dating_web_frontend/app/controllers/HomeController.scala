@@ -26,17 +26,14 @@ class HomeController @Inject()(
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) extends BaseController {
-
-
-
-  def index(login_error: Optional_login_error) = userAction { implicit request: UserRequest[_] =>
+  def index(login_error: Optional_login_error): Action[AnyContent] = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
-      case Some(user_info: UserInfo) => Redirect("/welcome_page")
+      case Some(_: UserInfo) => Redirect("/welcome_page")
       case None => Ok(views.html.index(login_error))
     }
   }
 
-  def welcome_page = userAction { implicit request: UserRequest[_] =>
+  def welcome_page: Action[AnyContent] = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(user_info: UserInfo) => {
         Ok(views.html.welcome_page(user_info.username))
@@ -48,7 +45,7 @@ class HomeController @Inject()(
   /**
    * The meat of the application: this page is where people fill in information about their expertise
    */
-  def form() = userAction.async {
+  def form(): Action[AnyContent] = userAction.async {
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
@@ -61,7 +58,7 @@ class HomeController @Inject()(
     }
   }
 
-  def move_to_next_parent() = userAction.async {
+  def move_to_next_parent(): Action[AnyContent] = userAction.async {
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
@@ -129,32 +126,32 @@ class HomeController @Inject()(
     }
   }
 
-  def secret_page = userAction {
-    implicit request: UserRequest[_] => {
-      request.userInfo match {
-        case Some(user_info) => Ok("welcome " + user_info.username)
-        case None => Ok("you're not logged in")
-      }
-    }
-  }
-
   case class Login_info(username: String, password: String)
 
-  val login_form = Form(
+  val login_form: Form[Login_info] = Form(
     Forms.mapping(
       "username" -> Forms.text,
       "password" -> Forms.text
     )(Login_info.apply)(Login_info.unapply)
   )
 
-  def login = userAction.async(parse.form(login_form)) { implicit request: UserRequest[Login_info] => {
+  // POST action associated with the login form on the index page
+  def login: Action[Login_info] = userAction.async(parse.form(login_form)) { implicit request: UserRequest[Login_info] => {
     val Login_info(username, password) = request.body
-    verifier.login(username, password, request.session)
+    verifier.login(username, password, request.session).map({
+      case Incorrect_password() => Redirect("/?login_error=Incorrect+password")
+      case Username_not_found() => Redirect("/?login_error=Username+not+found")
+      case Login_successful(session_creator) => session_creator(Redirect("/welcome_page"))
+    })
   }}
 
   val register_form = login_form
 
-  def register = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
-    verifier.register(request.body.username, request.body.password, request.session)
+  // POST action associated with the register form on the index page
+  def register: Action[Login_info] = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
+    verifier.register(request.body.username, request.body.password, request.session).map({
+      case Username_taken() => Redirect("/?login_error=Username+already+taken")
+      case Register_successful(session_creator) => session_creator(Redirect("/welcome_page"))
+    })
   }}
 }

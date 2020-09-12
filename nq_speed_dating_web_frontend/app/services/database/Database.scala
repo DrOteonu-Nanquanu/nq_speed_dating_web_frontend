@@ -115,9 +115,11 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+  // Sets the level_of_interest of the specified user to the specified level. If a level of interest was already specified, it will update it. If there isn't one, it will create a new level_of_interest record.
   def set_interesting_to(table_name: String, id_field: String)(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
     Future {
       db.withConnection(connection => {
+        // First, try to find and update an existing record
         val update_sql =
           s"""
             |UPDATE $table_name SET level_of_interest = ? WHERE user_id = ? AND $id_field = ?;
@@ -132,7 +134,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
         updated_rows match {
           case 0 => {
-            // Execute INSERT statement
+            // If no records were updated, insert one instead
             val insert_sql =
               s"""
                 |INSERT INTO $table_name(user_id, $id_field, level_of_interest) VALUES (?, ?, ?);
@@ -156,8 +158,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
 
   val set_project_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("project_interest_level", "project_id")
+
   val set_foi_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("interest_level", "interest_id")
 
+  // Used in next_foi_parent
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
     val sql =
       s"""
@@ -165,7 +169,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         |FROM field_of_interest parent
         |WHERE
           |(
-            |EXISTS(                                                          -- Test if there are any nq_projects related to parent
+            |EXISTS (                                                          -- Test if there are any nq_projects related to parent
               |SELECT *
               |FROM project_interesting_to pit
               |INNER JOIN nq_project ON nq_project.id = pit.nq_project_id
@@ -178,22 +182,22 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
                 |)
             |)
             |OR
-            |EXISTS (
+            |EXISTS (                                                         -- Test if the parent has any child FOI's
               |SELECT *
               |FROM field_of_interest child
               |WHERE
                 |child.parent_id = parent.id AND
-                |NOT EXISTS (
+                |NOT EXISTS (                                                 -- The children should not have an assigned level of interest yet
                   |SELECT *
                   |FROM interest_level il
                   |WHERE il.interest_id = child.id AND il.user_id = ?
                 |)
             |)
           |) AND
-          |parent.depth_in_tree IN(
+          |parent.depth_in_tree IN (                                           -- Make sure the user descends the hierarchy in a breadth-first manner
             |SELECT current_depth_in_tree FROM nq_user WHERE id = ?
           |)
-          |AND (parent.depth_in_tree = 0 OR parent.id IN(
+          |AND (parent.depth_in_tree = 0 OR parent.id IN (                     -- The parent should have a level_of_interest specified other than no_interest
             |SELECT interest_id
             |FROM interest_level
             |WHERE
@@ -218,13 +222,15 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+  // Moves to the next parent FOI whose children and related projects will be filled in by the user. Returns the database_id of the new parent, or None if there is no next parent. (Which means that the user is done filling in the form)
   def next_foi_parent(user_id: Database_ID): Future[Option[Database_ID]] = {
     Future {
       db.withConnection(connection => {
+        // Try to find a next parent at the current level of the hierarchy
         next_foi_parent_inner(user_id, connection) match {
           case s: Some[Database_ID] => s
           case None => {
-            // Update the current_depth_in_tree of the user
+            // If no parent is found at the current level, search one level deeper
             val update_sql =
               """
                 |UPDATE nq_user SET current_depth_in_tree = current_depth_in_tree + 1 WHERE id = ?;
@@ -237,7 +243,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             // Query again, but with updated current_depth_in_tree
             next_foi_parent_inner(user_id, connection) match {
               case s: Some[Database_ID] => s
-              case None => None // The user filled in everything
+              case None => None // If still no parent was found, the user must have filled in everything
             }
           }
         }
@@ -245,13 +251,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+  // Sets the next parent whose children will be filled in by the user.
   def set_foi_parent(user_id: Database_ID, foi_parent_id: Database_ID) = {
     Future {
       db.withConnection(connection => {
-
-        println(user_id.id)
-        println(foi_parent_id.id)
-
         val sql =
           """
             |UPDATE nq_user SET current_parent_id = ? WHERE id = ? ;
@@ -268,33 +271,35 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
+  // Find the FOI's that the user currently must fill in, and their assigned level_of interest.
   def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = Future {
-      db.withConnection(connection => {
-        val sql =
-          """
-            |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
-            |FROM field_of_interest
-            |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
-            |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
-            |WHERE nq_user.id = ?;
-            |""".stripMargin
+    db.withConnection(connection => {
+      val sql =
+        """
+          |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
+          |FROM field_of_interest
+          |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
+          |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
+          |WHERE nq_user.id = ?;
+          |""".stripMargin
 
-        val stmt = connection.prepareStatement(sql)
-        stmt.setInt(1, user_id.id)
+      val stmt = connection.prepareStatement(sql)
+      stmt.setInt(1, user_id.id)
 
-        val query_result = stmt.executeQuery()
+      val query_result = stmt.executeQuery()
 
-        var result = List[Field_Of_Expertise]()
+      var result = List[Field_Of_Expertise]()
 
-        while(query_result.next()) {
-          val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString("level_of_interest"))
-          result ::= Field_Of_Expertise(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
-        }
+      while(query_result.next()) {
+        val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString("level_of_interest"))
+        result ::= Field_Of_Expertise(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
+      }
 
-        result
-      })
-    }
+      result
+    })
+  }
 
+  // nullable_string must either be null or be parsable into an integer corresponding to some Interest_level
   def nullable_string_to_optional_interest_level(nullable_string: String): Option[models.Interest_level.Value] = nullable_string match {
     case null => None
     case value => Some(
@@ -302,8 +307,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     )
   }
 
+  // Find the projects that the user currently must fill in, and their assigned level_of interest.
   def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
     db.withConnection(connection => {
+      // TODO: make sure the project isn't already filled in before. Idea: keep track of with which parent the project_interest_level record was created
       val sql =
         """
           |SELECT project.name, project.id, project.description, pil.level_of_interest
@@ -332,23 +339,4 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       result
     })
   }
-
-/*  def query[R](sql: String, result_processor: ResultSet => R): Future[List[R]] = Future {
-    db.withConnection(connection => {
-
-      val statement = connection.prepareStatement(sql)
-
-
-
-      val query_result = statement.executeQuery()
-
-      var result = List[R]()
-
-      while(query_result.next()) {
-        result = result_processor(query_result) :: result
-      }
-
-      result
-    })
-  }*/
 }

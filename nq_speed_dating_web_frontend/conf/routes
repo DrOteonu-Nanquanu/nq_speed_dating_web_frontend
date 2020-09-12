@@ -11,9 +11,6 @@ GET /form                       controllers.HomeController.form
 GET /move_to_next_parent        controllers.HomeController.move_to_next_parent
 PUT /update_form_item           controllers.HomeController.update_form_item
 
-# Test
-GET     /secret     controllers.HomeController.secret_page
-
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
 
