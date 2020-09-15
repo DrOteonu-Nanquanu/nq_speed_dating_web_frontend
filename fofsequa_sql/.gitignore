@@ -9,3 +9,4 @@ target
 *.class
 *.log
 .g8/
+lib/
