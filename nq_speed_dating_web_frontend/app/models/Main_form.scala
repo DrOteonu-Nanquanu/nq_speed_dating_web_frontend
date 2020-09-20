@@ -25,10 +25,10 @@ trait Form_item {
 
 object Interest_level extends Enumeration {
   type Interest_level = Value
-  val some_expertise,
-  interested,
-  sympathise,
-  no_interest = Value
+  val some_expertise = Value(0)
+  val interested = Value(1)
+  val sympathise = Value(2)
+  val no_interest = Value(3)
 
   // Returns the corresponding Expertise_Level, or None if there isn't one
   def from_name(name: String): Option[Interest_level] = name match {
