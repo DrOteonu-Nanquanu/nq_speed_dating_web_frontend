@@ -23,6 +23,7 @@ object User_data {
       Field("user_id", "INT NOT NULL"),
       Field("project_id", "INT NOT NULL"),
       Field("level_of_interest", "INT NOT NULL"),
+      Field("first_parent_foi", "INT")
     ), Some("id"))
   )
 }

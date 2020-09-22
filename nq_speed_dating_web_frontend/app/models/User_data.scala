@@ -74,8 +74,8 @@ class Verification @Inject()(
   // Verify username and password. If correct, returns Login_successful(session_creator)
   def login(username: String, password: String, session: Session): Future[Login_result] = {
     db.get_user_verification_data(username).flatMap({
-      case List() => Future{ Username_not_found() }// Redirect("/?login_error=Username+not+found") }
-      case (user: User) :: List() =>
+      case List() => Future{ Username_not_found() }
+      case List(user: User) =>
         if (BCrypt.checkpw(password, user.password_hash)) {
           set_login_cookie(username, user.database_ID, session).map(Login_successful)
         }

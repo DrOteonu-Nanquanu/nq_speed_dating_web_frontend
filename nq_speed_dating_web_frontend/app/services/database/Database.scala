@@ -116,13 +116,13 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the level_of_interest of the specified user to the specified level. If a level of interest was already specified, it will update it. If there isn't one, it will create a new level_of_interest record.
-  def set_interesting_to(table_name: String, id_field: String)(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
     Future {
       db.withConnection(connection => {
         // First, try to find and update an existing record
         val update_sql =
           s"""
-            |UPDATE $table_name SET level_of_interest = ? WHERE user_id = ? AND $id_field = ?;
+            |UPDATE interest_level SET level_of_interest = ? WHERE user_id = ? AND interest_id = ?;
             |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
@@ -137,7 +137,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             // If no records were updated, insert one instead
             val insert_sql =
               s"""
-                |INSERT INTO $table_name(user_id, $id_field, level_of_interest) VALUES (?, ?, ?);
+                |INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES (?, ?, ?);
                 |""".stripMargin
 
             val insert_stmt = connection.prepareStatement(insert_sql)
@@ -149,17 +149,52 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             insert_stmt.executeUpdate()
           }
           case 1 => ()
-          case _ => () // TODO ERROR: there should be only one
+          case _ => throw new Exception("It should be impossible for more than one record to be updated")
         }
       })
     }
   }
 
+  def set_project_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+    Future {
+      db.withConnection(connection => {
+        // First, try to find and update an existing record
+        val update_sql =
+          s"""
+             |UPDATE project_interest_level SET level_of_interest = ? WHERE user_id = ? AND project_id = ?;
+             |""".stripMargin
 
+        val update_stmt = connection.prepareStatement(update_sql)
+        update_stmt.setInt(1, level_of_interest.id)
+        update_stmt.setInt(2, user_id.id)
+        update_stmt.setInt(3, interest_id.id)
 
-  val set_project_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("project_interest_level", "project_id")
+        val updated_rows = update_stmt.executeUpdate()
+        updated_rows match {
+          case 0 => {
+            // If no records were updated, insert one instead
+            val insert_sql =
+              s"""
+                 |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
+                 |SELECT id, ?, ?, current_parent_id
+                 |FROM nq_user
+                 |WHERE id = ?;
+                 |""".stripMargin
 
-  val set_foi_interesting_to: (Database_ID, Database_ID, Interest_level) => Future[Unit] = set_interesting_to("interest_level", "interest_id")
+            val insert_stmt = connection.prepareStatement(insert_sql)
+
+            insert_stmt.setInt(1, interest_id.id)
+            insert_stmt.setInt(2, level_of_interest.id)
+            insert_stmt.setInt(3, user_id.id)
+
+            insert_stmt.executeUpdate()
+          }
+          case 1 => ()
+          case _ => throw new Exception("It should be impossible for more than one record to be updated")
+        }
+      })
+    }
+  }
 
   // Used in next_foi_parent
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
@@ -252,7 +287,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the next parent whose children will be filled in by the user.
-  def set_foi_parent(user_id: Database_ID, foi_parent_id: Database_ID) = {
+  def set_foi_parent(user_id: Database_ID, foi_parent_id: Database_ID): Future[Unit] = {
     Future {
       db.withConnection(connection => {
         val sql =
@@ -310,7 +345,6 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   // Find the projects that the user currently must fill in, and their assigned level_of interest.
   def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
     db.withConnection(connection => {
-      // TODO: make sure the project isn't already filled in before. Idea: keep track of with which parent the project_interest_level record was created
       val sql =
         """
           |SELECT project.name, project.id, project.description, pil.level_of_interest
@@ -320,7 +354,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           |INNER JOIN nq_user
           |ON nq_user.current_parent_id = pio.field_of_interest_id
           |LEFT JOIN project_interest_level pil ON project.id = pil.project_id AND pil.user_id = nq_user.id
-          |WHERE nq_user.id = ?;
+          |WHERE nq_user.id = ? AND (pil.first_parent_foi IS NULL OR pil.first_parent_foi = nq_user.current_parent_id);
           |""".stripMargin
 
       val stmt = connection.prepareStatement(sql)
