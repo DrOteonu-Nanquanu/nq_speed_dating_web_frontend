@@ -15,4 +15,4 @@ Has_name('mathematics', "Mathematics");
 Has_name('logic', "Logic");
 Has_name('physics', "Physics");
 Has_name('asofus', "Asofus");
-Has_name('coin_dedureas', "Coin-dedureas")
+Has_name('coin_dedureas', "Coin-dedureas");
