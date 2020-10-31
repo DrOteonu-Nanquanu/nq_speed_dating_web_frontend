@@ -1,4 +1,4 @@
 #!/bin/bash
-sudo apt install nodejs
-sudo apt install npm
+sudo apt-get -y install nodejs
+sudo apt-get -y install npm
 npm install -u typescript
