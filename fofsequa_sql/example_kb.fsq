@@ -18,4 +18,4 @@ Has_name('physics', "Physics");
 Has_name('first_order_logic', "First Order Logic");
 
 Has_name('asofus', "Asofus");
-Has_name('coin_dedureas', "Coin-dedureas")
+Has_name('coin_dedureas', "Coin-dedureas");
