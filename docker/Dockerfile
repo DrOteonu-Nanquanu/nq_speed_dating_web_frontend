@@ -39,24 +39,37 @@ RUN apt install gnome-nettool -y
 RUN ss
 RUN netstat -ulpn
 
-# RUN pg_createcluster -s /var/run/postgresql/.s.PGSQL.5432 12 main
+# RUN pg_createcluster -s /var/run/postgresql/ 12 main
 RUN ss
 RUN netstat -ulpn
+
+# RUN echo "nocache"
+
+RUN pg_lsclusters
+RUN service postgresql start
+RUN pg_lsclusters
 RUN pg_ctlcluster 12 main start
 
-RUN service postgresql start
 RUN pg_lsclusters
 
 RUN ss
 RUN netstat -ulpn
 
 WORKDIR /usr/app/nq_speed_dating_web_frontend/scripts
-RUN echo "/usr/app/coin-dedureas/FofsequaReasoner/eprover-executable/PROVER/eprover" | bash create_database
+# RUN pg_ctlcluster 12 main start
+RUN pg_ctlcluster 12 main start && echo "/usr/app/coin-dedureas/FofsequaReasoner/eprover-executable/PROVER/eprover" | bash create_database
+
+RUN apt-get -y install libsodium18
 
 WORKDIR ../nq_speed_dating_web_frontend
 
+RUN echo "pg_ctlcluster 12 main start; sbt run" > run_server
+
+CMD bash ./run_server
+
+# CMD ["pg_ctlcluster", "12", "main", "start"]
 # RUN postgres -D /usr/local/pgsql/data
 
 # CMD ["sbt", "run"]
 
-CMD ["bash"]
+# CMD ["bash"]
