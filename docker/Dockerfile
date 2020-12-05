@@ -7,22 +7,17 @@ RUN apt-get update && \
 
 RUN useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
 
+RUN sudo apt-get install -y build-essential
+RUN apt-get -y install libsodium18
+
 RUN git clone 'https://github.com/DrOteonu-Nanquanu/nq_speed_dating_web_frontend.git'
 
 WORKDIR nq_speed_dating_web_frontend/scripts/
 
-RUN sudo apt-get install -y build-essential
 RUN bash install_postgresql
-# RUN pg_ctlcluster 13 main start
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
 RUN bash install_typescript
-
-WORKDIR ../nq_speed_dating_web_frontend
-
-EXPOSE 9000
-
-RUN sbt compile
 
 WORKDIR /usr/app
 RUN git clone 'https://github.com/DrOteonu-Nanquanu/coin-dedureas.git'
@@ -34,32 +29,14 @@ WORKDIR ../FofsequaReasoner
 RUN bash ./eprover-init
 RUN sbt publishLocal
 
-RUN apt install gnome-nettool -y
-
-RUN ss
-RUN netstat -ulpn
-
-# RUN pg_createcluster -s /var/run/postgresql/ 12 main
-RUN ss
-RUN netstat -ulpn
-
-# RUN echo "nocache"
-
-RUN pg_lsclusters
-RUN service postgresql start
-RUN pg_lsclusters
-RUN pg_ctlcluster 12 main start
-
-RUN pg_lsclusters
-
-RUN ss
-RUN netstat -ulpn
-
 WORKDIR /usr/app/nq_speed_dating_web_frontend/scripts
-# RUN pg_ctlcluster 12 main start
 RUN pg_ctlcluster 12 main start && echo "/usr/app/coin-dedureas/FofsequaReasoner/eprover-executable/PROVER/eprover" | bash create_database
 
-RUN apt-get -y install libsodium18
+WORKDIR ../nq_speed_dating_web_frontend
+
+EXPOSE 9000
+
+RUN sbt compile
 
 WORKDIR ../nq_speed_dating_web_frontend
 
