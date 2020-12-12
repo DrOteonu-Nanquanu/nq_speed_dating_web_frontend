@@ -19,10 +19,10 @@ class User_expertise_data @Inject()(
   implicit ec: scala.concurrent.ExecutionContext,
 ){
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
-  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: Interest_level.Interest_level): Future[Unit] =
+  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
     db.set_foi_interesting_to(user, expertise, expertise_level)
 
-  def set_project_expertise_level(user: Database_ID, project: Database_ID, expertise_level: Interest_level.Interest_level): Future[Unit] =
+  def set_project_expertise_level(user: Database_ID, project: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
     db.set_project_interesting_to(user, project, expertise_level)
 
   // Moves to the next FOI whose children will be filled in by the user
@@ -40,8 +40,30 @@ class User_expertise_data @Inject()(
     })
 
   // Find the FOI's that the user currently must fill in, and their assigned level_of interest.
-  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] =
-    db.get_current_fois(user_id)
+  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+    db.get_current_fois(user_id).map(topics => {
+      val ids = topics.map(t => t.id).distinct
+
+      ids.map(id => {
+        val records = topics.filter(_.id == id)
+
+        Field_Of_Expertise(records.head.name, records.head.id, records.flatMap(_.interest_level))
+      })
+    })
+  }
+
+  // TODO: This method and `get_current_fois` are almost a copy-paste. Could use some nice abstraction.
+  def get_current_projects(user_id: Database_ID): Future[List[Nq_project]] = {
+    db.get_current_nq_projects(user_id).map(projects => {
+      val ids = projects.map(t => t.id).distinct
+
+      ids.map(id => {
+        val records = projects.filter(_.id == id)
+
+        Nq_project(records.head.name, records.head.id, records.flatMap(_.interest_level), records.head.description)
+      })
+    })
+  }
 }
 
 sealed trait Login_result

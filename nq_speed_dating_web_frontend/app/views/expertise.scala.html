@@ -2,7 +2,7 @@
 
 @level_of_interest_button(value: String, name: String, selected: Boolean) = {
     <div>
-        <input type="radio" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)" @if(selected){checked}>
+        <input type="checkbox" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)" @if(selected){checked}>
         <span>@name</span>
     </div>
 }
@@ -19,10 +19,10 @@
         <input type="hidden" id="database_id" value="@item.id.id">
         <input type="hidden" id="form_item_type" value="@item.item_type">
 
-        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", item.interest_level == Some(models.Interest_level.some_expertise))
-        @level_of_interest_button("interested", "I am interested in developing myself in this topic", item.interest_level == Some(models.Interest_level.interested))
-        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic", item.interest_level == Some(models.Interest_level.sympathise))
-        @level_of_interest_button("no_interest", "I am not (much) interested in this topic", item.interest_level == Some(models.Interest_level.no_interest))
+        @level_of_interest_button("some_expertise", "I have some level of expertise in this topic", item.interest_levels.contains(models.Interest_level.some_expertise))
+        @level_of_interest_button("interested", "I am interested in developing myself in this topic", item.interest_levels.contains(models.Interest_level.interested))
+        @level_of_interest_button("sympathise", "I sympathise with this topic, even if I may not be interested in developing myself in this topic", item.interest_levels.contains(models.Interest_level.sympathise))
+        @level_of_interest_button("no_interest", "I am not (much) interested in this topic", item.interest_levels.contains(models.Interest_level.no_interest))
     </form>
     <br>
 </div>

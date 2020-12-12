@@ -3,13 +3,13 @@ package models
 import models.Interest_level.Interest_level
 import models.database.Database_ID
 
-case class Field_Of_Expertise(name: String, id: Database_ID, interest_level: Option[Interest_level]) extends Form_item {
+case class Field_Of_Expertise(name: String, id: Database_ID, interest_levels: List[Interest_level]) extends Form_item {
   def optional_description: Option[Nothing] = None
 
   override def item_type: String = "expertise"
 }
 
-case class Nq_project(name: String, id: Database_ID, interest_level: Option[Interest_level], description: String) extends Form_item {
+case class Nq_project(name: String, id: Database_ID, interest_levels: List[Interest_level], description: String) extends Form_item {
   def optional_description: Option[String] = Some(description)
 
   override def item_type: String = "project"
@@ -18,7 +18,7 @@ case class Nq_project(name: String, id: Database_ID, interest_level: Option[Inte
 trait Form_item {
   def name: String
   def id: Database_ID
-  def interest_level: Option[Interest_level]
+  def interest_levels: List[Interest_level]
   def optional_description: Option[String]
   def item_type: String
 }

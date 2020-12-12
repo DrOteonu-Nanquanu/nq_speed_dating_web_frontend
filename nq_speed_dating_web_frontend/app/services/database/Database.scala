@@ -116,81 +116,74 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the level_of_interest of the specified user to the specified level. If a level of interest was already specified, it will update it. If there isn't one, it will create a new level_of_interest record.
-  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
       db.withConnection(connection => {
-        // First, try to find and update an existing record
+        // First, remove existing records for this user and interest
         val update_sql =
           s"""
-            |UPDATE interest_level SET level_of_interest = ? WHERE user_id = ? AND interest_id = ?;
+            |DELETE FROM interest_level WHERE user_id = ? AND interest_id = ?;
             |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
-        update_stmt.setInt(1, level_of_interest.id)
-        update_stmt.setInt(2, user_id.id)
-        update_stmt.setInt(3, interest_id.id)
+        update_stmt.setInt(1, user_id.id)
+        update_stmt.setInt(2, interest_id.id)
 
-        val updated_rows = update_stmt.executeUpdate()
+        update_stmt.executeUpdate()
 
-        updated_rows match {
-          case 0 => {
-            // If no records were updated, insert one instead
-            val insert_sql =
-              s"""
-                |INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES (?, ?, ?);
-                |""".stripMargin
+        if(!affinities.isEmpty) {
+          // Insert the new affinities
+          val insert_patterns = affinities.map(_ => "(?, ?, ?)").mkString(" ", ", ", ";")
 
-            val insert_stmt = connection.prepareStatement(insert_sql)
+          val insert_sql =
+            "INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES" ++ insert_patterns;
 
-            insert_stmt.setInt(1, user_id.id)
-            insert_stmt.setInt(2, interest_id.id)
-            insert_stmt.setInt(3, level_of_interest.id)
+          val insert_stmt = connection.prepareStatement(insert_sql)
 
-            insert_stmt.executeUpdate()
+          for((level_of_interest, i) <- affinities.zipWithIndex) {
+            insert_stmt.setInt(1 + i * 3, user_id.id)
+            insert_stmt.setInt(2 + i * 3, interest_id.id)
+            insert_stmt.setInt(3 + i * 3, level_of_interest.id)
           }
-          case 1 => ()
-          case _ => throw new Exception("It should be impossible for more than one record to be updated")
+
+          insert_stmt.executeUpdate()
         }
       })
     }
   }
 
-  def set_project_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+  def set_project_interesting_to(user_id: Database_ID, project_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
       db.withConnection(connection => {
-        // First, try to find and update an existing record
+        // First, remove existing records for this user and project
         val update_sql =
           s"""
-             |UPDATE project_interest_level SET level_of_interest = ? WHERE user_id = ? AND project_id = ?;
+             |DELETE FROM project_interest_level WHERE user_id = ? AND project_id = ?;
              |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
-        update_stmt.setInt(1, level_of_interest.id)
-        update_stmt.setInt(2, user_id.id)
-        update_stmt.setInt(3, interest_id.id)
+        update_stmt.setInt(1, user_id.id)
+        update_stmt.setInt(2, project_id.id)
 
-        val updated_rows = update_stmt.executeUpdate()
-        updated_rows match {
-          case 0 => {
-            // If no records were updated, insert one instead
-            val insert_sql =
-              s"""
-                 |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
-                 |SELECT id, ?, ?, current_parent_id
-                 |FROM nq_user
-                 |WHERE id = ?;
-                 |""".stripMargin
+        update_stmt.executeUpdate()
+        // Insert new records
 
-            val insert_stmt = connection.prepareStatement(insert_sql)
+        for(affinity <- affinities) {
+          val insert_sql =
+            s"""
+               |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
+               |SELECT id, ?, ?, current_parent_id
+               |FROM nq_user
+               |WHERE id = ?;
+               |""".stripMargin
 
-            insert_stmt.setInt(1, interest_id.id)
-            insert_stmt.setInt(2, level_of_interest.id)
-            insert_stmt.setInt(3, user_id.id)
+          val insert_stmt = connection.prepareStatement(insert_sql)
 
-            insert_stmt.executeUpdate()
-          }
-          case 1 => ()
-          case _ => throw new Exception("It should be impossible for more than one record to be updated")
+          insert_stmt.setInt(1, project_id.id)
+          insert_stmt.setInt(2, affinity.id)
+          insert_stmt.setInt(3, user_id.id)
+
+          insert_stmt.executeUpdate()
         }
       })
     }
@@ -306,8 +299,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  // Find the FOI's that the user currently must fill in, and their assigned level_of interest.
-  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = Future {
+  case class TopicRecord(name: String, id: Database_ID, interest_level: Option[Interest_level])
+
+  // Find the topics that the user currently must fill in, and their assigned affinity.
+  def get_current_fois(user_id: Database_ID): Future[List[TopicRecord]] = Future {
     db.withConnection(connection => {
       val sql =
         """
@@ -323,11 +318,11 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
       val query_result = stmt.executeQuery()
 
-      var result = List[Field_Of_Expertise]()
+      var result = List[TopicRecord]()
 
       while(query_result.next()) {
         val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString("level_of_interest"))
-        result ::= Field_Of_Expertise(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
+        result ::= TopicRecord(query_result.getString("name"), Database_ID(query_result.getInt("id")), maybe_level_of_interest)
       }
 
       result
@@ -342,8 +337,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     )
   }
 
+  case class ProjectRecord(name: String, id: Database_ID, interest_level: Option[Interest_level], description: String)
   // Find the projects that the user currently must fill in, and their assigned level_of interest.
-  def get_current_nq_projects(user_id: Database_ID): Future[List[Nq_project]] = Future {
+  def get_current_nq_projects(user_id: Database_ID): Future[List[ProjectRecord]] = Future {
     db.withConnection(connection => {
       val sql =
         """
@@ -362,12 +358,12 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
       val query_result = stmt.executeQuery()
 
-      var result = List[Nq_project]()
+      var result = List[ProjectRecord]()
 
       while(query_result.next()) {
         val maybe_level_of_interest = nullable_string_to_optional_interest_level(query_result.getString(4))
 
-        result ::= Nq_project(query_result.getString(1), Database_ID(query_result.getInt(2)), maybe_level_of_interest, query_result.getString(3))
+        result ::= ProjectRecord(query_result.getString(1), Database_ID(query_result.getInt(2)), maybe_level_of_interest, query_result.getString(3))
       }
 
       result
