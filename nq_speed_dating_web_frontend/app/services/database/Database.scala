@@ -116,81 +116,72 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the level_of_interest of the specified user to the specified level. If a level of interest was already specified, it will update it. If there isn't one, it will create a new level_of_interest record.
-  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
       db.withConnection(connection => {
-        // First, try to find and update an existing record
+        // First, remove existing records for this user and interest
         val update_sql =
           s"""
-            |UPDATE interest_level SET level_of_interest = ? WHERE user_id = ? AND interest_id = ?;
+            |DELETE FROM interest_level WHERE user_id = ? AND interest_id = ?;
             |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
-        update_stmt.setInt(1, level_of_interest.id)
-        update_stmt.setInt(2, user_id.id)
-        update_stmt.setInt(3, interest_id.id)
+        update_stmt.setInt(1, user_id.id)
+        update_stmt.setInt(2, interest_id.id)
 
-        val updated_rows = update_stmt.executeUpdate()
+        update_stmt.executeUpdate()
 
-        updated_rows match {
-          case 0 => {
-            // If no records were updated, insert one instead
-            val insert_sql =
-              s"""
-                |INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES (?, ?, ?);
-                |""".stripMargin
+        // Insert the new affinities
+        val insert_patterns = affinities.map(_ => "(?, ?, ?)").mkString(" ", ", ", ";")
 
-            val insert_stmt = connection.prepareStatement(insert_sql)
+        val insert_sql =
+          "INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES" ++ insert_patterns;
 
-            insert_stmt.setInt(1, user_id.id)
-            insert_stmt.setInt(2, interest_id.id)
-            insert_stmt.setInt(3, level_of_interest.id)
+        val insert_stmt = connection.prepareStatement(insert_sql)
 
-            insert_stmt.executeUpdate()
-          }
-          case 1 => ()
-          case _ => throw new Exception("It should be impossible for more than one record to be updated")
+        for((level_of_interest, i) <- affinities.zipWithIndex) {
+          insert_stmt.setInt(1 + i * 3, user_id.id)
+          insert_stmt.setInt(2 + i * 3, interest_id.id)
+          insert_stmt.setInt(3 + i * 3, level_of_interest.id)
         }
+
+        insert_stmt.executeUpdate()
       })
     }
   }
 
-  def set_project_interesting_to(user_id: Database_ID, interest_id: Database_ID, level_of_interest: Interest_level): Future[Unit] = {
+  def set_project_interesting_to(user_id: Database_ID, project_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
       db.withConnection(connection => {
-        // First, try to find and update an existing record
+        // First, remove existing records for this user and project
         val update_sql =
           s"""
-             |UPDATE project_interest_level SET level_of_interest = ? WHERE user_id = ? AND project_id = ?;
+             |REMOVE FROM project_interest_level WHERE user_id = ? AND project_id = ?;
              |""".stripMargin
 
         val update_stmt = connection.prepareStatement(update_sql)
-        update_stmt.setInt(1, level_of_interest.id)
-        update_stmt.setInt(2, user_id.id)
-        update_stmt.setInt(3, interest_id.id)
+        update_stmt.setInt(1, user_id.id)
+        update_stmt.setInt(2, project_id.id)
 
-        val updated_rows = update_stmt.executeUpdate()
-        updated_rows match {
-          case 0 => {
-            // If no records were updated, insert one instead
-            val insert_sql =
-              s"""
-                 |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
-                 |SELECT id, ?, ?, current_parent_id
-                 |FROM nq_user
-                 |WHERE id = ?;
-                 |""".stripMargin
+        update_stmt.executeUpdate()
+        // Insert new records
 
-            val insert_stmt = connection.prepareStatement(insert_sql)
+        for(affinity <- affinities) {
+          val insert_sql =
+            s"""
+               |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
+               |SELECT id, ?, ?, current_parent_id
+               |FROM nq_user
+               |WHERE id = ?;
+               |""".stripMargin
 
-            insert_stmt.setInt(1, interest_id.id)
-            insert_stmt.setInt(2, level_of_interest.id)
-            insert_stmt.setInt(3, user_id.id)
+          val insert_stmt = connection.prepareStatement(insert_sql)
 
-            insert_stmt.executeUpdate()
-          }
-          case 1 => ()
-          case _ => throw new Exception("It should be impossible for more than one record to be updated")
+          insert_stmt.setInt(1, project_id.id)
+          insert_stmt.setInt(2, affinity.id)
+          insert_stmt.setInt(3, user_id.id)
+
+          insert_stmt.executeUpdate()
         }
       })
     }

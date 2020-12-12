@@ -86,16 +86,23 @@ class HomeController @Inject()(
                 case JsNumber(value) => {
                   val database_id = value.intValue
 
-                  (json \ "level_of_interest").get match {
-                    case JsString(new_level) => Interest_level.from_name(new_level) match {
-                      case Some(level) => {
+                  (json \ "levels_of_interest").asOpt[List[String]] match {
+                    case Some(new_level_strings) => {
+                      val new_levels = new_level_strings.map(new_level => Interest_level.from_name(new_level) match {
+                        case Some(l) => l
+                        case None => null
+                      })
+                      if(new_levels.find(_ == null) != None) {
+                        Future { BadRequest("didn't recognise some string in levels_of_interest") }
+                      }
+                      else {
                         (json \ "form_item_type").get match {
                           case JsString("expertise") => {
                             // forward to function in model that updates the database
                             user_expertise_data.set_expertise_level(
                               user_info.id,
                               Database_ID(database_id),
-                              level
+                              new_levels
                             ).map(_ => Ok(""))
                           }
                           case JsString("project") => {
@@ -103,15 +110,19 @@ class HomeController @Inject()(
                             user_expertise_data.set_project_expertise_level(
                               user_info.id,
                               Database_ID(database_id),
-                              level
+                              new_levels
                             ).map(_ => Ok(""))
                           }
-                          case _ => Future { BadRequest("form_item_type is invalid") }
+                          case _ => Future {
+                            BadRequest("form_item_type is invalid")
+                          }
                         }
                       }
-                      case None => Future { BadRequest("new_level is not a valid Expertise_Level") }
+
                     }
-                    case _ => Future { BadRequest("level_of_interest isn't a string") }
+                    case _ => Future {
+                      BadRequest("levels_of_interest isn't an array")
+                    }
                   }
                 }
                 case _ => Future { BadRequest("expertise_id isn't a number") }

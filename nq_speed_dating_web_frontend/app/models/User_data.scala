@@ -19,10 +19,10 @@ class User_expertise_data @Inject()(
   implicit ec: scala.concurrent.ExecutionContext,
 ){
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
-  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: Interest_level.Interest_level): Future[Unit] =
+  def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
     db.set_foi_interesting_to(user, expertise, expertise_level)
 
-  def set_project_expertise_level(user: Database_ID, project: Database_ID, expertise_level: Interest_level.Interest_level): Future[Unit] =
+  def set_project_expertise_level(user: Database_ID, project: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
     db.set_project_interesting_to(user, project, expertise_level)
 
   // Moves to the next FOI whose children will be filled in by the user
