@@ -165,4 +165,11 @@ class HomeController @Inject()(
       case Login_successful(session_creator) => session_creator(Redirect("/welcome_page"))
     })
   }}
+
+  def logout = userAction { implicit request: UserRequest[_] =>
+    request.userInfo match {
+      case Some(_: UserInfo) => Redirect("/").withNewSession.discardingCookies()
+      case None => Ok(views.html.index(Optional_login_error(Some("You've tried login out while you were already logout out."))))
+    }
+  }
 }

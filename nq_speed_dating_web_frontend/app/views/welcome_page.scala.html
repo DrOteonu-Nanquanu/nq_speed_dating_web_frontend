@@ -1,6 +1,6 @@
 @(username: String)
 
-@main("Welcome") {<!----->} {
+@authenticated_page("Welcome") {<!----->} {
     <div>Welcome @username</div>
     <div>@form_link()</div>
 }
