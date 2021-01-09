@@ -2,7 +2,7 @@
 
 @level_of_interest_button(value: String, name: String, selected: Boolean) = {
     <div>
-        <input type="checkbox" name="level_of_interest" value="@value" onclick="submit_expertise(this.parentNode.parentNode)" @if(selected){checked}>
+        <input type="checkbox" name="level_of_interest" value="@value" onclick="on_expertise_update(this, this.parentNode.parentNode)" @if(selected){checked}>
         <span>@name</span>
     </div>
 }

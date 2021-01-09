@@ -37,6 +37,44 @@ function submit_expertise(form: HTMLFormElement) {
     })
 }
 
+function enable(checkbox: HTMLInputElement) {
+    checkbox.disabled = false;
+    checkbox.parentElement.style.color = "";
+}
+
+function disable(checkbox: HTMLInputElement) {
+    checkbox.checked = false;
+    checkbox.disabled = true;
+
+    checkbox.parentElement.style.color = "grey";
+}
+
+function on_expertise_update(updated: HTMLInputElement, form: HTMLFormElement) {
+    const checkboxes = (
+        Array.from(
+            form.getElementsByTagName("input")
+        ) as HTMLInputElement[])
+        .filter(i => i.type == "checkbox");
+    
+    if(updated.checked) {
+        if(["some_expertise", "interested", "sympathise"].includes(updated.value)) {
+            const no_interest = checkboxes.find(i => i.value == "no_interest");
+
+            disable(no_interest);
+        }
+        else {
+            checkboxes
+                .filter(i => i.value != "no_interest")
+                .forEach(disable);
+        }
+    }
+    else if(checkboxes.findIndex(i => i.checked) == -1) {
+        checkboxes.forEach(enable);
+    }
+
+    submit_expertise(form)
+}
+
 function log_return(message) {
     console.log(message);
     return message;
