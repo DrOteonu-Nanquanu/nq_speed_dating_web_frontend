@@ -49,22 +49,21 @@ function disable(checkbox: HTMLInputElement) {
     checkbox.parentElement.style.color = "grey";
 }
 
+const checkbox_group_positive = ["some_expertise", "interested", "sympathise"];
+const checkbox_negative = "no_interest"
+
 function on_expertise_update(updated: HTMLInputElement, form: HTMLFormElement) {
-    const checkboxes = (
-        Array.from(
-            form.getElementsByTagName("input")
-        ) as HTMLInputElement[])
-        .filter(i => i.type == "checkbox");
+    const checkboxes = checkboxesOnForm(form);
     
     if(updated.checked) {
-        if(["some_expertise", "interested", "sympathise"].includes(updated.value)) {
-            const no_interest = checkboxes.find(i => i.value == "no_interest");
+        if(checkbox_group_positive.includes(updated.value)) {
+            const no_interest = checkboxes.find(i => i.value == checkbox_negative);
 
             disable(no_interest);
         }
         else {
             checkboxes
-                .filter(i => i.value != "no_interest")
+                .filter(i => i.value != checkbox_negative)
                 .forEach(disable);
         }
     }
@@ -79,3 +78,29 @@ function log_return(message) {
     console.log(message);
     return message;
 }
+
+function checkboxesOnForm(form: HTMLFormElement) {
+    return ((
+        Array.from(
+            form.getElementsByTagName("input")
+        ) as HTMLInputElement[])
+        .filter(i => i.type == "checkbox")
+    );
+}
+
+addEventListener("load", e => {
+    for(const form of Array.from(document.getElementsByTagName("form"))) {
+        const checkboxes = checkboxesOnForm(form);
+
+        const checked = checkboxes.filter(c => c.checked);
+
+        if(checked.findIndex(c => checkbox_group_positive.includes(c.value)) != -1) {   // If any positive checkbox is selected, disable the negative one
+            disable(checkboxes.find(i => i.value == checkbox_negative))
+        }
+        else if(checked.map(c => c.value).includes(checkbox_negative)) {    // If the negative checkbox is selected, disable the positive ones.
+            checkboxes
+                .filter(c => c.value != checkbox_negative)
+                .forEach(disable)
+        }
+    }
+})
