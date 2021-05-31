@@ -1,5 +1,5 @@
 # Instructions (Ubuntu / Linux):
-Install docker (`sudo apt install docker.io`
+Install docker (https://docs.docker.com/engine/install/ubuntu/)
 
 Clone this repository from github and open your terminal in this directory (docker).
 
