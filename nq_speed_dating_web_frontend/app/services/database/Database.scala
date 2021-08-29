@@ -12,6 +12,8 @@ import play.api.db.Database
 import scala.concurrent.Future
 import play.api.libs.concurrent.CustomExecutionContext
 
+import models.{Affinity, ProjectAffinity, TopicAffinity}
+
 @Singleton
 class DatabaseExecutionContext @Inject()(system: ActorSystem) extends CustomExecutionContext(system, "database.dispatcher")
 
@@ -191,6 +193,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
   // Used in next_foi_parent
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
+    // TODO: look at submitted level_of_affinity's rather than those selected in the UI
+    // TODO: maybe add a SORT BY to ensure the first result is always the same, or do something with GROUP BY instead?
     val sql =
       s"""
         |SELECT parent.id
@@ -369,4 +373,104 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       result
     })
   }
+
+  def submit_affinities(user_id: Database_ID, project_topic_id: Database_ID, affintiy_type: Affinity) : Future[Unit] = Future {
+    println(s"submit_affinities: ($user_id, $project_topic_id, ${affintiy_type.ui_table}, ${affintiy_type.history_table})")
+    db.withConnection(connection => {
+      val query_sql =
+        s"""
+          |SELECT level_of_interest
+          |FROM ${affintiy_type.ui_table}
+          |WHERE user_id = ? AND ${affintiy_type.ui_table_id_column} = ?;
+          |""".stripMargin
+
+      val query_stmt = connection.prepareStatement(query_sql)
+      query_stmt.setInt(1, user_id.id)
+      query_stmt.setInt(2, project_topic_id.id)
+
+      val query_result = query_stmt.executeQuery()
+
+      var some_expertise = false
+      var interested = false
+      var sympathise = false
+      var no_interest = false
+
+      while(query_result.next()) {
+        val il = Interest_level(query_result.getInt(1))
+        println(il)
+        il match {
+          case Interest_level.some_expertise => some_expertise = true
+          case Interest_level.interested => interested = true
+          case Interest_level.sympathise => sympathise = true
+          case Interest_level.no_interest => no_interest = true
+        }
+      }
+
+      val update_sql =
+        s"""
+          |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
+          |VALUES(?, ?, ?, ?, ?, ?);
+          """.stripMargin
+
+      val update_stmt = connection.prepareStatement(update_sql)
+
+      update_stmt.setInt(1, user_id.id)
+      update_stmt.setInt(2, project_topic_id.id)
+      update_stmt.setBoolean(3, some_expertise)
+      update_stmt.setBoolean(4, interested)
+      update_stmt.setBoolean(5, sympathise)
+      update_stmt.setBoolean(6, no_interest)
+
+      update_stmt.executeUpdate()
+    })
+  }
+
+  def submit_topic_affinities = submit_affinities(_, _, TopicAffinity())
+  def submit_project_affinities = submit_affinities(_, _, ProjectAffinity())
+
+  // def submit_topic_affinities(user_id: Database_ID, topic_id: Database_ID) : Future[Unit] = Future {
+  //   db.withConnection(connection => {
+  //     val query_sql =
+  //       """
+  //         |SELECT il.level_of_interest
+  //         |FROM interest_level il
+  //         |WHERE il.user_id = ? AND il.interest_id = ?;
+  //         |""".stripMargin
+
+  //     val query_stmt = connection.prepareStatement(query_sql)
+  //     query_stmt.setInt(1, user_id.id)
+  //     query_stmt.setInt(2, topic_id.id)
+
+  //     val query_result = query_stmt.executeQuery()
+
+  //     var some_expertise = false
+  //     var interested = false
+  //     var sympathise = false
+  //     var no_interest = false
+
+  //     while(query_result.next()) {
+  //       Interest_level(query_result.getInt(1)) match {
+  //         case Interest_level.some_expertise => some_expertise = true
+  //         case Interest_level.interested => interested = true
+  //         case Interest_level.sympathise => sympathise = true
+  //         case Interest_level.no_interest => no_interest = true
+  //       }
+  //     }
+
+  //     val update_sql =
+  //       """
+  //         |INSERT INTO topic_affinity_history(user_id, topic_id, some_expertise, intersted, sympathise, no_interest)
+  //         |VALUES(?, ?, ?, ?, ?, ?);
+  //         """.stripMargin
+
+  //     val update_stmt = connection.prepareStatement(update_sql)
+
+  //     update_stmt.setInt(1, user_id.id)
+  //     update_stmt.setInt(2, topic_id.id)
+  //     update_stmt.setBoolean(3, some_expertise)
+  //     update_stmt.setBoolean(4, interested)
+  //     update_stmt.setBoolean(5, sympathise)
+  //     update_stmt.setBoolean(6, no_interest)
+  //   })
+  // }
 }

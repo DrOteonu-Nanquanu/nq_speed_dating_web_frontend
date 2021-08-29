@@ -172,4 +172,13 @@ class HomeController @Inject()(
       case None => Ok(views.html.index(Optional_login_error(Some("You've tried login out while you were already logout out."))))
     }
   }
+
+  def submit_affinities(affinity_type: Affinity)(topic_project_id: Int): Action[AnyContent] = userAction.async { implicit request: UserRequest[_] => {
+    request.userInfo match {
+      case Some(UserInfo(_, user_id)) => db.submit_affinities(user_id, Database_ID(topic_project_id), affinity_type).map(_ => Ok(""))
+      case None => Future { Redirect("/") }
+  }}}
+
+  def submit_topic_affinities = submit_affinities(TopicAffinity())(_)
+  def submit_project_affinities = submit_affinities(ProjectAffinity())(_)
 }

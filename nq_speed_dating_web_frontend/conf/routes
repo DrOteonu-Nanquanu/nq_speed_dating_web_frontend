@@ -12,9 +12,11 @@ GET /move_to_next_parent        controllers.HomeController.move_to_next_parent
 PUT /update_form_item           controllers.HomeController.update_form_item
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+GET /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
 
 # Authentication
-POST /login                     controllers.HomeController.login
-POST /register                  controllers.HomeController.register
-GET  /logout                    controllers.HomeController.logout
+POST /login                             controllers.HomeController.login
+POST /register                          controllers.HomeController.register
+GET  /logout                            controllers.HomeController.logout
+POST /submit_topic/*topic_id            controllers.HomeController.submit_topic_affinities(topic_id: Int)
+POST /submit_project/*project_id        controllers.HomeController.submit_project_affinities(project_id: Int)

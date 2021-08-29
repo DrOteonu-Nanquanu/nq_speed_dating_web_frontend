@@ -1,18 +1,21 @@
+function log_response(response: Response) {
+    console.log(response)
+    response.text().then(console.log)
+
+    return response
+}
+
 function submit_expertise(form: HTMLFormElement) {
     console.log(form);
 
-    const inputs = Array.from(form.getElementsByTagName("input")) as HTMLInputElement[];    
+    const inputs = get_inputs(form);    
     const levels_of_interest = inputs
         .filter(input => input.name === "level_of_interest" && input.checked)
         .map(checkbox => checkbox.value);
     
-    const database_id = parseInt(inputs
-        .find(input => input.id="database_id")
-        .value);
+    const database_id = get_database_id(inputs)
 
-    const form_item_type = inputs
-        .find(input => input.id === "form_item_type")
-        .value
+    const form_item_type = get_form_item_type(inputs)
 
     console.log(levels_of_interest, database_id);
     fetch("/update_form_item",
@@ -72,6 +75,8 @@ function on_expertise_update(updated: HTMLInputElement, form: HTMLFormElement) {
     }
 
     submit_expertise(form)
+
+    set_status("Your changes are saved but not yet submitted.");
 }
 
 function log_return(message) {
@@ -88,8 +93,69 @@ function checkboxesOnForm(form: HTMLFormElement) {
     );
 }
 
+function get_forms(): HTMLFormElement[] {
+    return Array.from(document.getElementsByTagName("form"))
+}
+
+function get_database_id(inputs: HTMLInputElement[]) {
+    return parseInt(
+        inputs
+            .find(input => input.id="database_id")
+            .value
+    );
+}
+
+function get_form_item_type(inputs: HTMLInputElement[]) {
+    return (inputs
+        .find(input => input.id === "form_item_type")
+        .value
+   );
+}
+
+function get_inputs(form: HTMLFormElement) {
+    return Array.from(form.getElementsByTagName("input")) as HTMLInputElement[]
+}
+
+function submit() {
+    set_status("Trying to submit answers...")
+    const form_inputs = get_forms().map(get_inputs);
+
+    for(const inputs of form_inputs) {
+        const topic_id = get_database_id(inputs);
+        const type = get_form_item_type(inputs);
+
+        let submit_type_name: string;
+        if(type === 'project') {
+            submit_type_name = 'project';
+        }
+        else if (type === 'expertise') {
+            submit_type_name = 'topic';
+        }
+        else {
+            throw Error('unknown form_item_type: ' + type);
+        }
+
+        fetch(`/submit_${submit_type_name}/` + topic_id, {
+            method: 'POST'
+        })
+        .then(log_response)
+        .then(res => {
+            if(res.ok){
+                set_status("Succesfully submitted");
+            }
+            else {
+                set_status(`Failed to submit with error ${res.status}: ${res.statusText}`);
+            }
+        });
+    }
+}
+
+function next_page() {
+    window.location.href = "/move_to_next_parent"
+}
+
 addEventListener("load", e => {
-    for(const form of Array.from(document.getElementsByTagName("form"))) {
+    for(const form of get_forms()) {
         const checkboxes = checkboxesOnForm(form);
 
         const checked = checkboxes.filter(c => c.checked);
@@ -103,4 +169,17 @@ addEventListener("load", e => {
                 .forEach(disable)
         }
     }
+
+    document.getElementById("submit").addEventListener('click', submit);
+
+    document.getElementById("submit_and_next").addEventListener('click', e => {
+        submit();
+        next_page();
+    });
 })
+
+
+function set_status(message: string) {
+    const status_div = document.getElementById("status");
+    status_div.innerText = message;
+}
