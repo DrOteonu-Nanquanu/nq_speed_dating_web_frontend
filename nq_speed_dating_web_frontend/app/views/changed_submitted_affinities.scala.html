@@ -1,4 +1,19 @@
-@(expertises: Seq[models.Field_Of_Expertise], nq_projects: Seq[models.Nq_project])
+@(expertises: Seq[models.Form_item], nq_projects: Seq[models.Form_item])
 
-@authenticated_page("Expertises Form"){/*<script src="assets/ts/form.js"></script>*/}{
+@main("Change Submitted Affinities"){
+    <script src="assets/ts/util.js"></script>
+    <script src="assets/ts/expertises.js"></script>
+    <script src="assets/ts/change_affinities.js"></script>
+}{
+@navigation_bar()
+    @for(project <- nq_projects) {
+        @expertise(project)
+    }
+
+    @for(expertise_data <- expertises) {
+        @expertise(expertise_data)
+    }
+
+    <div id="status">No changes</div>
+    <button id="submit">Submit</button>
 }

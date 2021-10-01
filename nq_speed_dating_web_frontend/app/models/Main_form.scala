@@ -46,6 +46,8 @@ abstract sealed class Affinity {
   val ui_table: String
   val ui_table_id_column: String
   val history_table_id_column: String
+  val general_info_table: String
+  val has_description: Boolean
 }
 
 case class ProjectAffinity() extends Affinity {
@@ -53,6 +55,8 @@ case class ProjectAffinity() extends Affinity {
   val ui_table = "project_interest_level"
   val ui_table_id_column = "project_id"
   val history_table_id_column = ui_table_id_column
+  val general_info_table = "nq_project"
+  val has_description = true;
 }
 
 case class TopicAffinity() extends Affinity {
@@ -60,4 +64,6 @@ case class TopicAffinity() extends Affinity {
   val ui_table = "interest_level"
   val ui_table_id_column = "interest_id"
   val history_table_id_column = "topic_id"
+  val general_info_table = "field_of_interest"
+  val has_description = false;
 }

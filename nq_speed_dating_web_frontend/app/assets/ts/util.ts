@@ -7,7 +7,7 @@ function log_response(response: Response) {
 }
 
 
-function log_return(message) {
+function log_return(message: any) {
     console.log(message);
     return message;
 }
@@ -17,7 +17,7 @@ function checkboxesOnForm(form: HTMLFormElement) {
         Array.from(
             form.getElementsByTagName("input")
         ) as HTMLInputElement[])
-        .filter(i => i.type == "checkbox")
+        .filter(i => i.type === "checkbox")
     );
 }
 

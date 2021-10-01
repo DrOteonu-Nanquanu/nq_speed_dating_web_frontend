@@ -41,28 +41,35 @@ class User_expertise_data @Inject()(
 
   // Find the FOI's that the user currently must fill in, and their assigned level_of interest.
   def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
-    db.get_current_fois(user_id).map(topics => {
-      val ids = topics.map(t => t.id).distinct
+    db.get_current_fois(user_id).map(topic_records_to_topics)
+  }
+  // TODO: This method and `get_current_fois` are almost a copy-paste. Could use some nice abstraction.
+  def get_current_projects(user_id: Database_ID): Future[List[Nq_project]] = {
+    db.get_current_nq_projects(user_id).map(project_records_to_projects)
+  }
 
-      ids.map(id => {
-        val records = topics.filter(_.id == id)
+  def project_records_to_projects(projects: List[db.ProjectRecord]) = {
+    val ids = projects.map(t => t.id).distinct
 
-        Field_Of_Expertise(records.head.name, records.head.id, records.flatMap(_.interest_level))
-      })
+    ids.map(id => {
+      val records = projects.filter(_.id == id)
+
+      Nq_project(records.head.name, records.head.id, records.flatMap(_.interest_level), records.head.description)
+    })
+  }
+  def topic_records_to_topics(topics: List[db.TopicRecord]) = {
+    val ids = topics.map(t => t.id).distinct
+
+    ids.map(id => {
+      val records = topics.filter(_.id == id)
+
+      Field_Of_Expertise(records.head.name, records.head.id, records.flatMap(_.interest_level))
     })
   }
 
-  // TODO: This method and `get_current_fois` are almost a copy-paste. Could use some nice abstraction.
-  def get_current_projects(user_id: Database_ID): Future[List[Nq_project]] = {
-    db.get_current_nq_projects(user_id).map(projects => {
-      val ids = projects.map(t => t.id).distinct
-
-      ids.map(id => {
-        val records = projects.filter(_.id == id)
-
-        Nq_project(records.head.name, records.head.id, records.flatMap(_.interest_level), records.head.description)
-      })
-    })
+  def submit_forms(user_id: Database_ID, levels_of_interest: List[models.Interest_level.Interest_level], project_id: Database_ID, form_item_type: Affinity): Future[Unit] = {
+    println(f"submit_forms($user_id, $levels_of_interest, $project_id, $form_item_type)")
+    db.submit_affinities(user_id, levels_of_interest, project_id, form_item_type)
   }
 }
 
