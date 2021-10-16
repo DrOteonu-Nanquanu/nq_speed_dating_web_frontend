@@ -24,3 +24,6 @@ POST /register                          controllers.HomeController.register
 GET  /logout                            controllers.HomeController.logout
 POST /submit_topic/*topic_id            controllers.HomeController.submit_topic_affinities(topic_id: Int)
 POST /submit_project/*project_id        controllers.HomeController.submit_project_affinities(project_id: Int)
+
+# Debugging
+GET  /test                      controllers.HomeController.test

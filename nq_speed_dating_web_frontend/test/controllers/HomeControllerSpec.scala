@@ -45,6 +45,19 @@ class HomeControllerSpec extends PlaySpec with GuiceOneAppPerTest with Injecting
     // }
     
     "not crash when requesting home page" in {
+      val db = inject[services.database.ScalaApplicationDatabase]
+
+      println(
+        db.newest_submitted_affnities_sql(models.TopicAffinity(), "1")
+      )
+
+      println("testing update_editing_topics_projects")
+      scala.concurrent.Await.ready(
+        db.update_editing_topics_projects(models.database.Database_ID(1), models.TopicAffinity()),
+        scala.concurrent.duration.Duration.Inf
+      )
+      println("done testing update_editing_topics_projects")
+
       val controller = inject[HomeController]
       val home = controller.index(Optional_login_error(None)).apply(FakeRequest(GET, "/"))
       status(home) mustBe OK

@@ -118,7 +118,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the level_of_interest of the specified user to the specified level. If a level of interest was already specified, it will update it. If there isn't one, it will create a new level_of_interest record.
-  def set_foi_interesting_to(user_id: Database_ID, interest_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
+  def set_topic_interesting_to(user_id: Database_ID, interest_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
       db.withConnection(connection => {
         // First, remove existing records for this user and interest
@@ -198,8 +198,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  // Used in next_foi_parent
-  private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
+  // Used in next_topic_parent
+  private def next_topic_parent_inner(user_id: Database_ID, connection: Connection) = {
     // TODO: look at submitted level_of_affinity's rather than those selected in the UI
     // TODO: maybe add a SORT BY to ensure the first result is always the same, or do something with GROUP BY instead?
     val sql =
@@ -221,7 +221,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
                 |)
             |)
             |OR
-            |EXISTS (                                                         -- Test if the parent has any child FOI's
+            |EXISTS (                                                         -- Test if the parent has any child topic's
               |SELECT *
               |FROM field_of_interest child
               |WHERE
@@ -233,10 +233,11 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
                 |)
             |)
           |) AND
-          |parent.depth_in_tree IN (                                           -- Make sure the user descends the hierarchy in a breadth-first manner
-            |SELECT current_depth_in_tree FROM nq_user WHERE id = ?
+          |TRUE IN (                                                          -- Make sure the user descends the hierarchy in a breadth-first manner
+            |--TODO: This is somehow wrong. TRUE IN (...) seems to always evaluate to TRUE?
+            |SELECT current_depth_in_tree >= parent.depth_in_tree FROM nq_user WHERE id = ?
           |)
-          |AND (parent.depth_in_tree = 0 OR parent.id IN (                     -- The parent should have a level_of_interest specified other than no_interest
+          |AND (parent.depth_in_tree = 0 OR parent.id IN (                   -- The parent should have a level_of_interest specified other than no_interest
             |SELECT interest_id
             |FROM interest_level
             |WHERE
@@ -261,12 +262,79 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     }
   }
 
-  // Moves to the next parent FOI whose children and related projects will be filled in by the user. Returns the database_id of the new parent, or None if there is no next parent. (Which means that the user is done filling in the form)
-  def next_foi_parent(user_id: Database_ID): Future[Option[Database_ID]] = {
+  def argmax_sql(table: String, select_columns: String, max_column: String): String = argmax_sql(table, List(select_columns), max_column)
+
+  // Constructs a query that returns the values of the select_columns of the records where max_column = MAX(max_column). If table is a subquery, it's executed twice (if not optimized by the RDMS).
+  def argmax_sql(table: String, select_columns: List[String], max_column: String): String = 
+  {
+    val selections = select_columns.map("t1." + _).mkString(",")
+    s"""
+    |SELECT $selections
+    |FROM $table t1
+    |WHERE t1.$max_column = (SELECT MAX(t2.$max_column) FROM $table t2)
+    """.stripMargin
+  }
+
+  // Updates which topics or projects the user is editing
+  def update_editing_topics_projects(user_id: Database_ID, affinity_type: Affinity) = Future {
+    db.withConnection(connection => {
+      println("update_editing_topics_projects")
+
+      val clear_sql = s"""
+      |DELETE FROM ${affinity_type.user_edits_table}
+      |WHERE user_id = ?
+      """.stripMargin
+
+      println(clear_sql)
+      val clear_stmt = connection.prepareStatement(clear_sql)
+      clear_stmt.setInt(1, user_id.id);
+      
+      println("executing clear_stmt")
+      clear_stmt.executeUpdate()
+      println("done executing clear_stmt")
+
+      val insert_sql = s"""
+      WITH possible_parents AS (
+        SELECT parent.id AS parent_id, parent.depth_in_tree AS parent_depth_in_tree
+        FROM ${affinity_type.general_info_table} child
+        INNER JOIN ${affinity_type.general_info_table} parent ON child.parent_id = parent.id
+        WHERE EXISTS ( -- Make sure that the parent has been assigned a level of affinity that is not no_interest
+          SELECT *
+          FROM (
+            ${newest_submitted_affnities_sql(affinity_type, "?")}
+          )as newest
+          WHERE newest.id = parent.id AND NOT newest.no_interest
+        )
+      )
+      
+      INSERT INTO ${affinity_type.user_edits_table}(user_id, ${affinity_type.edit_state_table_id_column})
+      SELECT ?, next.id
+      FROM ${affinity_type.general_info_table} next
+      WHERE next.parent_id = (
+        SELECT MIN(possible_parent.parent_id)
+        FROM (
+          ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
+        ) AS possible_parent
+      )
+      """.stripMargin
+
+      println("printing inser_sql")
+      println(insert_sql)
+
+      val insert_stmt = connection.prepareStatement(insert_sql)
+      insert_stmt.setInt(1, user_id.id);
+      insert_stmt.setInt(2, user_id.id);
+      
+      insert_stmt.executeUpdate()
+    })
+  }
+
+  // Moves to the next parent topic whose children and related projects will be filled in by the user. Returns the database_id of the new parent, or None if there is no next parent. (Which means that the user is done filling in the form)
+  def next_topic_parent(user_id: Database_ID): Future[Option[Database_ID]] = {
     Future {
       db.withConnection(connection => {
         // Try to find a next parent at the current level of the hierarchy
-        next_foi_parent_inner(user_id, connection) match {
+        next_topic_parent_inner(user_id, connection) match {
           case s: Some[Database_ID] => s
           case None => {
             // If no parent is found at the current level, search one level deeper
@@ -280,7 +348,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             update_statement.executeUpdate()
 
             // Query again, but with updated current_depth_in_tree
-            next_foi_parent_inner(user_id, connection) match {
+            next_topic_parent_inner(user_id, connection) match {
               case s: Some[Database_ID] => s
               case None => None // If still no parent was found, the user must have filled in everything
             }
@@ -291,7 +359,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Sets the next parent whose children will be filled in by the user.
-  def set_foi_parent(user_id: Database_ID, foi_parent_id: Database_ID): Future[Unit] = {
+  def set_topic_parent(user_id: Database_ID, topic_parent_id: Database_ID): Future[Unit] = {
     Future {
       db.withConnection(connection => {
         val sql =
@@ -300,7 +368,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             |""".stripMargin
 
         val stmt = connection.prepareStatement(sql)
-        stmt.setInt(1, foi_parent_id.id)
+        stmt.setInt(1, topic_parent_id.id)
         stmt.setInt(2, user_id.id)
 
         stmt.executeUpdate()
@@ -313,7 +381,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   case class TopicRecord(name: String, id: Database_ID, interest_level: Option[Interest_level])
 
   // Find the topics that the user currently must fill in, and their assigned affinity.
-  def get_current_fois(user_id: Database_ID): Future[List[TopicRecord]] = Future {
+  def get_current_topics(user_id: Database_ID): Future[List[TopicRecord]] = Future {
     db.withConnection(connection => {
       val sql =
         """
@@ -340,21 +408,38 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
+  def newest_submitted_affinities_sql(affinity_type: Affinity, user_id_unsafe: String): String = {
+        f"""
+        SELECT a.${affinity_type.history_table_id_column} AS id, a.some_expertise, a.interested, a.sympathise, a.no_interest AS no_interest
+        FROM ${affinity_type.history_table} AS a
+        INNER JOIN (
+          SELECT ${affinity_type.history_table_id_column} AS aid, MAX(time) AS max_time FROM ${affinity_type.history_table}
+          WHERE user_id = $user_id_unsafe
+          GROUP BY ${affinity_type.history_table_id_column}
+        ) AS newest ON newest.aid = a.${affinity_type.history_table_id_column} AND newest.max_time = a.time
+        """.stripMargin
+  }
+  // TODO: Better documentation
+  // user_id_unsafe should not be a user inputted value. If it is, use "?" instead.
+  def newest_submitted_affnities_sql(affinity_type: Affinity, user_id_unsafe: String): String = {
+        val select_description = if(affinity_type.has_description) ", info_table.description" else ""
+
+        f"""
+        |SELECT info_table.name, a.${affinity_type.history_table_id_column} AS id, a.some_expertise, a.interested, a.sympathise, a.no_interest AS no_interest ${select_description}
+        |FROM ${affinity_type.history_table} AS a
+        |INNER JOIN (
+          |SELECT ${affinity_type.history_table_id_column} AS aid, MAX(time) AS max_time FROM ${affinity_type.history_table}
+          |WHERE user_id = $user_id_unsafe
+          |GROUP BY ${affinity_type.history_table_id_column}
+        |) AS newest ON newest.aid = a.${affinity_type.history_table_id_column} AND newest.max_time = a.time
+        |INNER JOIN ${affinity_type.general_info_table} AS info_table ON info_table.id = a.${affinity_type.history_table_id_column}
+        |""".stripMargin
+  }
+
   def get_newest_submitted_affinites(user_id: Database_ID, affinity_type: Affinity): Future[List[models.Form_item]] = {
     Future {
       db.withConnection(connection => {
-        val select_description = if(affinity_type.has_description) ", info_table.description" else ""
-        val sql =
-          f"""
-          |SELECT info_table.name, a.${affinity_type.history_table_id_column}, a.some_expertise, a.interested, a.sympathise, a.no_interest ${select_description}
-          |FROM ${affinity_type.history_table} AS a
-          |INNER JOIN (
-            |SELECT ${affinity_type.history_table_id_column} AS aid, MAX(time) AS max_time FROM ${affinity_type.history_table}
-            |WHERE user_id = ?
-            |GROUP BY ${affinity_type.history_table_id_column}
-          |) AS newest ON newest.aid = a.${affinity_type.history_table_id_column} AND newest.max_time = a.time
-          |INNER JOIN ${affinity_type.general_info_table} AS info_table ON info_table.id = a.${affinity_type.history_table_id_column}
-          |""".stripMargin
+        val sql = newest_submitted_affnities_sql(affinity_type, "?")
 
         val stmt = connection.prepareStatement(sql)
         stmt.setInt(1, user_id.id)

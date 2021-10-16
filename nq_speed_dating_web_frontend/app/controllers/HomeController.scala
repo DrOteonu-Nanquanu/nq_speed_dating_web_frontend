@@ -50,8 +50,8 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
-          user_expertise_data.get_current_fois(user_id).flatMap(fois =>
-            user_expertise_data.get_current_projects(user_id).map(projects => Ok(views.html.form(fois, projects)))
+          user_expertise_data.get_current_topics(user_id).flatMap(topics =>
+            user_expertise_data.get_current_projects(user_id).map(projects => Ok(views.html.form(topics, projects)))
           )
           
         case None => Future { Unauthorized("you're not logged in") }
@@ -63,7 +63,7 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
-          user_expertise_data.next_foi_parent(user_id)
+          user_expertise_data.next_topic_parent(user_id)
             .map(_ => Redirect("form"))
 
         case None => Future { Unauthorized("you're not logged in") }
@@ -253,5 +253,9 @@ class HomeController @Inject()(
           }
         }).getOrElse(Future { Unauthorized })
     }
+  }
+
+  def test: Action[AnyContent] = userAction.async {
+    db.update_editing_topics_projects(models.database.Database_ID(1), models.TopicAffinity()).map(_ => Ok)
   }
 }

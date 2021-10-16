@@ -20,18 +20,18 @@ class User_expertise_data @Inject()(
 ){
   // Sets the expertise level of `user` in `expertise` to `expertise_level` in the database.
   def set_expertise_level(user: Database_ID, expertise: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
-    db.set_foi_interesting_to(user, expertise, expertise_level)
+    db.set_topic_interesting_to(user, expertise, expertise_level)
 
   def set_project_expertise_level(user: Database_ID, project: Database_ID, expertise_level: List[Interest_level.Interest_level]): Future[Unit] =
     db.set_project_interesting_to(user, project, expertise_level)
 
-  // Moves to the next FOI whose children will be filled in by the user
-  def next_foi_parent(user: Database_ID): Future[Option[Database_ID]] =
-    db.next_foi_parent(user).flatMap(next_parent_id => {
+  // Moves to the next topic whose children will be filled in by the user
+  def next_topic_parent(user: Database_ID): Future[Option[Database_ID]] =
+    db.next_topic_parent(user).flatMap(next_parent_id => {
       val future = next_parent_id match {
         case Some(new_parent_id) => {
           println("next_parent_id = some " + new_parent_id)
-          db.set_foi_parent(user, new_parent_id)
+          db.set_topic_parent(user, new_parent_id)
         }
         case None => Future {}
       }
@@ -39,11 +39,11 @@ class User_expertise_data @Inject()(
       future.map(_ => next_parent_id)
     })
 
-  // Find the FOI's that the user currently must fill in, and their assigned level_of interest.
-  def get_current_fois(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
-    db.get_current_fois(user_id).map(topic_records_to_topics)
+  // Find the topics that the user currently must fill in, and their assigned level_of interest.
+  def get_current_topics(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+    db.get_current_topics(user_id).map(topic_records_to_topics)
   }
-  // TODO: This method and `get_current_fois` are almost a copy-paste. Could use some nice abstraction.
+  // TODO: This method and `get_current_topics` are almost a copy-paste. Could use some nice abstraction.
   def get_current_projects(user_id: Database_ID): Future[List[Nq_project]] = {
     db.get_current_nq_projects(user_id).map(project_records_to_projects)
   }
@@ -67,6 +67,8 @@ class User_expertise_data @Inject()(
     })
   }
 
+  // TODO: update ui state as well
+  // TODO: filter unchanged values
   def submit_forms(user_id: Database_ID, levels_of_interest: List[models.Interest_level.Interest_level], project_id: Database_ID, form_item_type: Affinity): Future[Unit] = {
     println(f"submit_forms($user_id, $levels_of_interest, $project_id, $form_item_type)")
     db.submit_affinities(user_id, levels_of_interest, project_id, form_item_type)
