@@ -3,3 +3,4 @@
 metals.sbt
 fofsequa.conf
 lib/
+.env
