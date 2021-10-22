@@ -1,11 +1,11 @@
 @(expertises: Seq[models.Form_item], nq_projects: Seq[models.Form_item])
 
-@main("Expertises Form"){
+@main("Change Submitted Affinities"){
     <script src="assets/ts/util.js"></script>
     <script src="assets/ts/expertises.js"></script>
-    <script src="assets/ts/form.js"></script>
+    <script src="assets/ts/change_affinities.js"></script>
 }{
-    @navigation_bar()
+@navigation_bar()
     @for(project <- nq_projects) {
         @expertise(project)
     }
@@ -16,6 +16,4 @@
 
     <div id="status">No changes</div>
     <button id="submit">Submit</button>
-    <button id="submit_and_next">Submit and next questions</button>
 }
-

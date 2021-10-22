@@ -12,6 +12,8 @@ import play.api.db.Database
 import scala.concurrent.Future
 import play.api.libs.concurrent.CustomExecutionContext
 
+import models.{Affinity, ProjectAffinity, TopicAffinity}
+
 @Singleton
 class DatabaseExecutionContext @Inject()(system: ActorSystem) extends CustomExecutionContext(system, "database.dispatcher")
 
@@ -131,6 +133,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
         update_stmt.executeUpdate()
 
+        println(affinities)
+
         if(!affinities.isEmpty) {
           // Insert the new affinities
           val insert_patterns = affinities.map(_ => "(?, ?, ?)").mkString(" ", ", ", ";")
@@ -138,15 +142,20 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           val insert_sql =
             "INSERT INTO interest_level(user_id, interest_id, level_of_interest) VALUES" ++ insert_patterns;
 
+          println(insert_sql)
+
           val insert_stmt = connection.prepareStatement(insert_sql)
 
           for((level_of_interest, i) <- affinities.zipWithIndex) {
+            println(f"$level_of_interest, index: $i")
             insert_stmt.setInt(1 + i * 3, user_id.id)
             insert_stmt.setInt(2 + i * 3, interest_id.id)
             insert_stmt.setInt(3 + i * 3, level_of_interest.id)
           }
 
           insert_stmt.executeUpdate()
+
+          println("executed update")
         }
       })
     }
@@ -191,6 +200,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
   // Used in next_foi_parent
   private def next_foi_parent_inner(user_id: Database_ID, connection: Connection) = {
+    // TODO: look at submitted level_of_affinity's rather than those selected in the UI
+    // TODO: maybe add a SORT BY to ensure the first result is always the same, or do something with GROUP BY instead?
     val sql =
       s"""
         |SELECT parent.id
@@ -329,6 +340,58 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
+  def get_newest_submitted_affinites(user_id: Database_ID, affinity_type: Affinity): Future[List[models.Form_item]] = {
+    Future {
+      db.withConnection(connection => {
+        val select_description = if(affinity_type.has_description) ", info_table.description" else ""
+        val sql =
+          f"""
+          |SELECT info_table.name, a.${affinity_type.history_table_id_column}, a.some_expertise, a.interested, a.sympathise, a.no_interest ${select_description}
+          |FROM ${affinity_type.history_table} AS a
+          |INNER JOIN (
+            |SELECT ${affinity_type.history_table_id_column} AS aid, MAX(time) AS max_time FROM ${affinity_type.history_table}
+            |WHERE user_id = ?
+            |GROUP BY ${affinity_type.history_table_id_column}
+          |) AS newest ON newest.aid = a.${affinity_type.history_table_id_column} AND newest.max_time = a.time
+          |INNER JOIN ${affinity_type.general_info_table} AS info_table ON info_table.id = a.${affinity_type.history_table_id_column}
+          |""".stripMargin
+
+        val stmt = connection.prepareStatement(sql)
+        stmt.setInt(1, user_id.id)
+
+        val query_result = stmt.executeQuery()
+        var result = List[models.Form_item]()
+
+        while(query_result.next()) {
+          val name = query_result.getString(1)
+          val id = query_result.getInt(2)
+          println("id = " + id)
+          val some_expertise = query_result.getBoolean(3)
+          val interested = query_result.getBoolean(4)
+          val sympathise = query_result.getBoolean(5)
+          val no_interest = query_result.getBoolean(6)
+
+          val interest_levels = List(
+            if(some_expertise) Some(Interest_level.some_expertise) else None,
+            if(interested)     Some(Interest_level.interested)     else None,
+            if(sympathise)     Some(Interest_level.sympathise)     else None,
+            if(no_interest)    Some(Interest_level.no_interest)    else None,
+          ).flatten
+
+          if(affinity_type.has_description) {
+            val description = query_result.getString(7)
+            result ::= Nq_project(name, Database_ID(id), interest_levels, description)
+          }
+          else {
+            result ::= Field_Of_Expertise(name, Database_ID(id), interest_levels)
+          }
+        }
+
+        result
+      })
+    }
+  }
+
   // nullable_string must either be null or be parsable into an integer corresponding to some Interest_level
   def nullable_string_to_optional_interest_level(nullable_string: String): Option[models.Interest_level.Value] = nullable_string match {
     case null => None
@@ -367,6 +430,80 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       }
 
       result
+    })
+  }
+
+  def submit_affinities(user_id: Database_ID, project_topic_id: Database_ID, affintiy_type: Affinity) : Future[Unit] = Future {
+    println(s"submit_affinities: ($user_id, $project_topic_id, ${affintiy_type.ui_table}, ${affintiy_type.history_table})")
+    db.withConnection(connection => {
+      val query_sql =
+        s"""
+          |SELECT level_of_interest
+          |FROM ${affintiy_type.ui_table}
+          |WHERE user_id = ? AND ${affintiy_type.ui_table_id_column} = ?;
+          |""".stripMargin
+
+      val query_stmt = connection.prepareStatement(query_sql)
+      query_stmt.setInt(1, user_id.id)
+      query_stmt.setInt(2, project_topic_id.id)
+
+      val query_result = query_stmt.executeQuery()
+
+      var some_expertise = false
+      var interested = false
+      var sympathise = false
+      var no_interest = false
+
+      while(query_result.next()) {
+        val il = Interest_level(query_result.getInt(1))
+        println(il)
+        il match {
+          case Interest_level.some_expertise => some_expertise = true
+          case Interest_level.interested => interested = true
+          case Interest_level.sympathise => sympathise = true
+          case Interest_level.no_interest => no_interest = true
+        }
+      }
+
+      val update_sql =
+        s"""
+          |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
+          |VALUES(?, ?, ?, ?, ?, ?);
+          """.stripMargin
+
+      val update_stmt = connection.prepareStatement(update_sql)
+
+      update_stmt.setInt(1, user_id.id)
+      update_stmt.setInt(2, project_topic_id.id)
+      update_stmt.setBoolean(3, some_expertise)
+      update_stmt.setBoolean(4, interested)
+      update_stmt.setBoolean(5, sympathise)
+      update_stmt.setBoolean(6, no_interest)
+
+      update_stmt.executeUpdate()
+    })
+  }
+
+  def submit_topic_affinities = submit_affinities(_: Database_ID, _: Database_ID, TopicAffinity())
+  def submit_project_affinities = submit_affinities(_: Database_ID, _: Database_ID, ProjectAffinity())
+
+  def submit_affinities(user_id: Database_ID, levels_of_affinity: List[Interest_level], project_topic_id: Database_ID, affintiy_type: Affinity): Future[Unit] = Future {
+    db.withConnection(connection => {
+      val sql = s"""
+      |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
+      |VALUES(?, ?, ?, ?, ?, ?);
+      """.stripMargin
+
+      val stmt = connection.prepareStatement(sql)
+
+      stmt.setInt(1, user_id.id)
+      stmt.setInt(2, project_topic_id.id)
+      stmt.setBoolean(3, levels_of_affinity.contains(Interest_level.some_expertise))
+      stmt.setBoolean(4, levels_of_affinity.contains(Interest_level.interested))
+      stmt.setBoolean(5, levels_of_affinity.contains(Interest_level.sympathise))
+      stmt.setBoolean(6, levels_of_affinity.contains(Interest_level.no_interest))
+
+      stmt.executeUpdate()
     })
   }
 }
