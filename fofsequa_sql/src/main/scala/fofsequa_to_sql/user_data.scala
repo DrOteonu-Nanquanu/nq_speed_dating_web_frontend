@@ -51,7 +51,7 @@ object User_data {
       id,
       user_id,
       Field("topic_id", "INT NOT NULL"),
-    ), Some("id"))
+    ), Some("id")),
     Table("user_edits_project", List(
       id,
       user_id,

@@ -26,18 +26,26 @@ class User_expertise_data @Inject()(
     db.set_project_interesting_to(user, project, expertise_level)
 
   // Moves to the next topic whose children will be filled in by the user
-  def next_topic_parent(user: Database_ID): Future[Option[Database_ID]] =
-    db.next_topic_parent(user).flatMap(next_parent_id => {
-      val future = next_parent_id match {
-        case Some(new_parent_id) => {
-          println("next_parent_id = some " + new_parent_id)
-          db.set_topic_parent(user, new_parent_id)
-        }
-        case None => Future {}
-      }
-
-      future.map(_ => next_parent_id)
+  def next_topic_parent(user: Database_ID): Future[Option[Database_ID]] = {
+    db.update_editing_topics_projects(user, TopicAffinity()).zip(
+      db.update_editing_topics_projects(user, ProjectAffinity())
+    ).map({case (topic_update, project_update) => 
+      Some(Database_ID(-1))
     })
+
+
+    // db.next_topic_parent(user).flatMap(next_parent_id => {
+    //   val future = next_parent_id match {
+    //     case Some(new_parent_id) => {
+    //       println("next_parent_id = some " + new_parent_id)
+    //       db.set_topic_parent(user, new_parent_id)
+    //     }
+    //     case None => Future {}
+    //   }
+
+    //   future.map(_ => next_parent_id)
+    // })
+  }
 
   // Find the topics that the user currently must fill in, and their assigned level_of interest.
   def get_current_topics(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {

@@ -293,6 +293,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       clear_stmt.executeUpdate()
       println("done executing clear_stmt")
 
+      // TODO: the argmax(possible_parents) part can optimized to only be calculated once when this function is called twice with a different affinity_type argument
       val insert_sql = s"""
       WITH possible_parents AS (
         SELECT parent.id AS parent_id, parent.depth_in_tree AS parent_depth_in_tree
