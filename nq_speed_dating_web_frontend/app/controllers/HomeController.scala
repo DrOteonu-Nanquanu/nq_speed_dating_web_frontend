@@ -50,9 +50,7 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
-          user_expertise_data.get_current_topics(user_id).flatMap(topics =>
-            user_expertise_data.get_current_projects(user_id).map(projects => Ok(views.html.form(topics, projects)))
-          )
+          user_expertise_data.get_current_topics_and_projects(user_id).map({ case (topics, projects) => Ok(views.html.form(topics, projects)) } )
           
         case None => Future { Unauthorized("you're not logged in") }
       }

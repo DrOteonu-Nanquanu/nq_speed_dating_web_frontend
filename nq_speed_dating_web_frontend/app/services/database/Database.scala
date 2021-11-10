@@ -294,30 +294,74 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       println("done executing clear_stmt")
 
       // TODO: the argmax(possible_parents) part can optimized to only be calculated once when this function is called twice with a different affinity_type argument
+      
+      val insert_part = if(affinity_type.name == "topic") {
+        f"""
+        INSERT INTO ${affinity_type.user_edits_table}(user_id, ${affinity_type.edit_state_table_id_column})
+        SELECT ?, next.id
+        FROM ${affinity_type.general_info_table} next
+        WHERE next.parent_id = (
+          SELECT MIN(possible_parent.parent_id)
+          FROM (
+            ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
+          ) AS possible_parent
+        )
+        """.stripMargin
+      } else {
+        f"""
+        INSERT INTO ${affinity_type.user_edits_table}(user_id, ${affinity_type.edit_state_table_id_column})
+        SELECT ?, pit.nq_project_id
+        FROM project_interesting_to AS pit
+        WHERE pit.field_of_interest_id = (
+          SELECT MIN(possible_parent.parent_id)
+          FROM (
+            ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
+          ) AS possible_parent
+        )
+        """.stripMargin
+      }
+
+      val project_affinity = ProjectAffinity()
+      val topic_affinity = TopicAffinity()
+      
+
       val insert_sql = s"""
       WITH possible_parents AS (
         SELECT parent.id AS parent_id, parent.depth_in_tree AS parent_depth_in_tree
-        FROM ${affinity_type.general_info_table} child
-        INNER JOIN ${affinity_type.general_info_table} parent ON child.parent_id = parent.id
+        FROM ${topic_affinity.general_info_table} AS parent
         WHERE EXISTS ( -- Make sure that the parent has been assigned a level of affinity that is not no_interest
           SELECT *
           FROM (
-            ${newest_submitted_affnities_sql(affinity_type, "?")}
+            ${newest_submitted_affnities_sql(topic_affinity, "?")}
           )as newest
           WHERE newest.id = parent.id AND NOT newest.no_interest
         )
+        AND (
+          EXISTS (    -- Make sure that there exists a child that has not been assigned a level of interest yet
+            SELECT *
+            FROM ${topic_affinity.general_info_table} AS child
+            WHERE NOT EXISTS (
+              SELECT *
+              FROM ${topic_affinity.history_table} AS history
+              WHERE history.${topic_affinity.history_table_id_column} = child.id AND history.user_id = ?
+            )
+            AND
+            child.parent_id = parent.id
+          )
+          OR
+          EXISTS (    -- Alternatively, there can exist a related project that has not been assigned a level of interest yet
+            SELECT *
+            FROM ${project_affinity.general_info_table} AS p
+            INNER JOIN project_interesting_to pit ON pit.nq_project_id = p.id AND pit.field_of_interest_id = parent.id
+            WHERE NOT EXISTS (
+              SELECT *
+              FROM ${project_affinity.history_table} AS history
+              WHERE history.${project_affinity.history_table_id_column} = p.id AND history.user_id = ?
+            )
+          )
+        )
       )
-      
-      INSERT INTO ${affinity_type.user_edits_table}(user_id, ${affinity_type.edit_state_table_id_column})
-      SELECT ?, next.id
-      FROM ${affinity_type.general_info_table} next
-      WHERE next.parent_id = (
-        SELECT MIN(possible_parent.parent_id)
-        FROM (
-          ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
-        ) AS possible_parent
-      )
-      """.stripMargin
+      """.stripMargin + insert_part
 
       println("printing inser_sql")
       println(insert_sql)
@@ -325,6 +369,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       val insert_stmt = connection.prepareStatement(insert_sql)
       insert_stmt.setInt(1, user_id.id);
       insert_stmt.setInt(2, user_id.id);
+      insert_stmt.setInt(3, user_id.id);
+      insert_stmt.setInt(4, user_id.id);
       
       insert_stmt.executeUpdate()
     })
@@ -384,14 +430,23 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   // Find the topics that the user currently must fill in, and their assigned affinity.
   def get_current_topics(user_id: Database_ID): Future[List[TopicRecord]] = Future {
     db.withConnection(connection => {
+      // val sql =
+      //   """
+      //     |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
+      //     |FROM field_of_interest
+      //     |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
+      //     |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
+      //     |WHERE nq_user.id = ?;
+      //     |""".stripMargin
+      
       val sql =
         """
-          |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
-          |FROM field_of_interest
-          |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
-          |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
-          |WHERE nq_user.id = ?;
-          |""".stripMargin
+        SELECT t.name AS name, t.id AS id, il.level_of_interest AS level_of_interest
+        FROM user_edits_topic uet
+        INNER JOIN field_of_interest AS t ON t.id = uet.topic_id
+        LEFT JOIN interest_level AS il ON uet.user_id = il.user_id AND t.id = il.interest_id
+        WHERE uet.user_id = ?
+        """.stripMargin
 
       val stmt = connection.prepareStatement(sql)
       stmt.setInt(1, user_id.id)
@@ -490,17 +545,28 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   // Find the projects that the user currently must fill in, and their assigned level_of interest.
   def get_current_nq_projects(user_id: Database_ID): Future[List[ProjectRecord]] = Future {
     db.withConnection(connection => {
+      // val sql =
+      //   """
+      //     |SELECT project.name, project.id, project.description, pil.level_of_interest
+      //     |FROM nq_project project
+      //     |INNER JOIN project_interesting_to pio
+      //     |ON project.id = pio.nq_project_id
+      //     |INNER JOIN nq_user
+      //     |ON nq_user.current_parent_id = pio.field_of_interest_id
+      //     |LEFT JOIN project_interest_level pil ON project.id = pil.project_id AND pil.user_id = nq_user.id
+      //     |WHERE nq_user.id = ? AND (pil.first_parent_foi IS NULL OR pil.first_parent_foi = nq_user.current_parent_id);
+      //     |""".stripMargin
+
+
       val sql =
         """
-          |SELECT project.name, project.id, project.description, pil.level_of_interest
-          |FROM nq_project project
-          |INNER JOIN project_interesting_to pio
-          |ON project.id = pio.nq_project_id
-          |INNER JOIN nq_user
-          |ON nq_user.current_parent_id = pio.field_of_interest_id
-          |LEFT JOIN project_interest_level pil ON project.id = pil.project_id AND pil.user_id = nq_user.id
-          |WHERE nq_user.id = ? AND (pil.first_parent_foi IS NULL OR pil.first_parent_foi = nq_user.current_parent_id);
-          |""".stripMargin
+        SELECT p.name, p.id, p.description, il.level_of_interest
+        FROM user_edits_project uep
+        INNER JOIN nq_project AS p ON p.id = uep.project_id
+        LEFT JOIN project_interest_level AS il ON uep.user_id = il.user_id AND p.id = il.project_id
+        WHERE uep.user_id = ?
+        """.stripMargin
+
 
       val stmt = connection.prepareStatement(sql)
       stmt.setInt(1, user_id.id)

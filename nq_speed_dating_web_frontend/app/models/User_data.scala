@@ -56,6 +56,23 @@ class User_expertise_data @Inject()(
     db.get_current_nq_projects(user_id).map(project_records_to_projects)
   }
 
+  def get_current_topics_and_projects(user_id: Database_ID): Future[(List[Field_Of_Expertise], List[Nq_project])] = {
+    val topics = db.get_current_topics(user_id).map(topic_records_to_topics)
+    val projects = db.get_current_nq_projects(user_id).map(project_records_to_projects)
+
+    topics.zip(projects).flatMap({
+      case (List(), List()) => {
+        next_topic_parent(user_id).flatMap(_ => { // Try updating the topics and projects if both lists were empty
+          val topics = db.get_current_topics(user_id).map(topic_records_to_topics)
+          val projects = db.get_current_nq_projects(user_id).map(project_records_to_projects)
+
+          topics.zip(projects)
+        })
+      }
+      case other => Future { other }
+    })
+  }
+
   def project_records_to_projects(projects: List[db.ProjectRecord]) = {
     val ids = projects.map(t => t.id).distinct
 
@@ -79,7 +96,14 @@ class User_expertise_data @Inject()(
   // TODO: filter unchanged values
   def submit_forms(user_id: Database_ID, levels_of_interest: List[models.Interest_level.Interest_level], project_id: Database_ID, form_item_type: Affinity): Future[Unit] = {
     println(f"submit_forms($user_id, $levels_of_interest, $project_id, $form_item_type)")
-    db.submit_affinities(user_id, levels_of_interest, project_id, form_item_type)
+    val submit_affinities_future = db.submit_affinities(user_id, levels_of_interest, project_id, form_item_type)
+
+    if(form_item_type.name == "project") {
+      submit_affinities_future.zip(db.set_project_interesting_to(user_id, project_id, levels_of_interest)).map(_ => ())
+    }
+    else {
+      submit_affinities_future.zip(db.set_topic_interesting_to(user_id, project_id, levels_of_interest)).map(_ => ())
+    }
   }
 }
 
@@ -98,6 +122,7 @@ case class Username_taken() extends  Register_result
 class Verification @Inject()(
   db: services.database.ScalaApplicationDatabase,
   val sessionGenerator: SessionGenerator,
+  user_expertise_data: User_expertise_data
 )(
   implicit ec: scala.concurrent.ExecutionContext,
 ) {
@@ -135,11 +160,20 @@ class Verification @Inject()(
       }
       else {
         db.get_user_id(username).flatMap {
-          case Some(id) => set_login_cookie(username, id, session).map(Login_successful)
+          case Some(id) => {
+            
+            db.submit_affinities(id, List(Interest_level.interested), Database_ID(0), TopicAffinity()) // The root topic "All" is of some interest to anyone
+            .flatMap(_ =>
+                user_expertise_data.next_topic_parent(id)
+            ).flatMap(_ =>
+              set_login_cookie(username, id, session).map(Login_successful)
+            )
+          }
           case None => throw new Exception("Account creation failed: username isn't actually present in the database")
         }
       }
     )
+  // def submit_affinities(user_id: Database_ID, levels_of_affinity: List[Interest_level], project_topic_id: Database_ID, affintiy_type: Affinity)
   }
 }
 
