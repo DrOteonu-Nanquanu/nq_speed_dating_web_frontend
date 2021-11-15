@@ -28,3 +28,7 @@ function get_forms(): HTMLFormElement[] {
 function get_inputs(form: HTMLFormElement) {
     return Array.from(form.getElementsByTagName("input")) as HTMLInputElement[]
 }
+
+function zip<A, B>(a: A[], b: B[]): [A, B][] {
+    return a.map((e, i) => [e, b[i]])
+}

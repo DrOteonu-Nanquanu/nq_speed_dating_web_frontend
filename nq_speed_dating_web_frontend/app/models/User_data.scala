@@ -104,6 +104,7 @@ class User_expertise_data @Inject()(
     else {
       submit_affinities_future.zip(db.set_topic_interesting_to(user_id, project_id, levels_of_interest)).map(_ => ())
     }
+    
   }
 }
 

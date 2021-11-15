@@ -37,7 +37,7 @@ class HomeController @Inject()(
   def welcome_page: Action[AnyContent] = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(user_info: UserInfo) => {
-        Ok(views.html.welcome_page(user_info.username))
+        Ok(views.html.welcome_page(user_info.username + "!"))
       }
       case None => Redirect("/")
     }
@@ -210,15 +210,17 @@ class HomeController @Inject()(
   }
 
   def submit_forms: Action[JsValue] = userAction.async(parse.json) {
-    println("submit_forms")
-
     def item_misses_exception(field: String) = new Exception(f"item has no ${field} field")
 
-    def parse_levels_of_interest(elem: JsValue) =
+    def parse_levels_of_interest(elem: JsValue): Try[List[Interest_level.Interest_level]] =
       (elem \ "levels_of_interest").asOpt[List[String]].toRight(item_misses_exception("levels_of_interest")).toTry
         .flatMap(levels => list_of_try_to_try_of_list(
           levels.map(name => Interest_level.from_name(name).toRight(new Exception(f"could not parse $name into Interest_level")).toTry)
-        ))
+        )) match {
+          case f: Failure[_] => f
+          case Success(List()) => Failure(new Exception(f"cannot submit empty list of interest levels"))
+          case other => other
+        }
 
     def parse_database_id(elem: JsValue) =
       (elem \ "database_id").asOpt[Int].toRight(item_misses_exception("database_id")).toTry.map(Database_ID(_)) // The database_id of the project or topic
@@ -254,6 +256,8 @@ class HomeController @Inject()(
   }
 
   def test: Action[AnyContent] = userAction.async {
+    // println(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(new Exception("test1")))
+    throw new Exception("test")
     db.update_editing_topics_projects(models.database.Database_ID(1), models.TopicAffinity()).map(_ => Ok)
   }
 }

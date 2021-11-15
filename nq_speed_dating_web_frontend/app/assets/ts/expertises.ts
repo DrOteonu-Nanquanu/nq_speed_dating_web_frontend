@@ -45,8 +45,21 @@ function get_form_data(form: HTMLFormElement) {
 
 // Query all forms on the page and submit their data to /submit_forms
 function submit_all_forms() {
-    const forms_data = get_forms().map(get_form_data);
+    const forms = get_forms();
+    const forms_data = forms.map(get_form_data);
     console.log(forms_data);
+    
+    const empty_forms = zip(forms_data, forms)
+        .filter(([{levels_of_interest}, _form]) => levels_of_interest.length === 0)
+        .map(([_data, form]) => form);
+
+    if(empty_forms.length > 0) {
+        const empty_form_names = empty_forms.map(form => form.parentElement.getElementsByClassName("topic_project_name")[0].textContent)
+        
+        set_status("Cannot submit empty forms: " + empty_form_names.join(", "))
+
+        return;
+    }
 
     fetch("/submit_forms",
           {

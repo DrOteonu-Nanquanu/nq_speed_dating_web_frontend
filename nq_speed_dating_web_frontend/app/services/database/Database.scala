@@ -318,6 +318,11 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
           ) AS possible_parent
         )
+        AND NOT EXISTS (
+          SELECT *
+          FROM ${affinity_type.history_table} h
+          WHERE h.project_id = pit.id AND h.user_id = ?
+        )
         """.stripMargin
       }
 
@@ -371,6 +376,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       insert_stmt.setInt(2, user_id.id);
       insert_stmt.setInt(3, user_id.id);
       insert_stmt.setInt(4, user_id.id);
+      if(affinity_type.name == "project") {
+        insert_stmt.setInt(5, user_id.id);
+      }
       
       insert_stmt.executeUpdate()
     })
