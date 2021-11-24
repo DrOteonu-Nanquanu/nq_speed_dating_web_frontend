@@ -20,6 +20,9 @@ object Fofsequa_sql {
       if(args(i) == "--user_tables") {
         generate_user_data_tables = true
       }
+      if(args(i) == "--sql-to-fsq") {
+        sql_to_fofsequa.Sql_to_fofsequa.go()
+      }
     }
 
     if(generate_user_data_tables) {
