@@ -3,12 +3,8 @@ Source code of the application can be found in ./nq_speed_dating_web_frontend
 
 ## Docker
 
-To use the `docker-compose.yaml`, make sure you build the scala app docker image first.
-You can achieve this by executing `sbt docker:publishLocal`.
-
-Then simply execute `docker-compose up -d` to run it locally, or add `--context` with your context to deploy remotely.
-
-//TODO automate building of docker image in a pipeline (github actions)
+Make sure to create a `.env` file first, based on the `.env.example` file present in the repo.
+Use `docker-compose up` (`docker compose up` on latest systems) to run the application + database locally.
 
 ## Running locally for debugging
 View ./nq\_speed\_dating\_web\_frontend/README.md for installation instructions.
