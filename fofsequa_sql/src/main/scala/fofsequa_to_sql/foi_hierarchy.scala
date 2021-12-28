@@ -21,12 +21,14 @@ object Foi_hierarchy {
       Field("name", "VARCHAR(255) NOT NULL"),
       Field("parent_id", "INT"),
       Field("depth_in_tree", "INT NOT NULL"),
+      Field("fofsequa_constant", "VARCHAR(255)"),
     ), Some("id")),
 
     Table("nq_project", List(
       Field("id", "INT NOT NULL"),
       Field("name", "VARCHAR(255) NOT NULL"),
-      Field("description", "VARCHAR NOT NULL")
+      Field("description", "VARCHAR NOT NULL"),
+      Field("fofsequa_constant", "VARCHAR(255)"),
     ), Some("id")),
 
     Table("project_interesting_to", List(
@@ -145,9 +147,11 @@ object Foi_hierarchy {
         case Some(name) => id_of_field(name)
         case None => "NULL"
       }
+
+      // TODO: String interpolation can be used to perform an injection attack. Probably, the constructors of the KB can be trustued, but it's still better to start using prepared statements.
       s"""
         |INSERT INTO field_of_interest
-        |VALUES ($id, '$name', $parent_id, $depth);""".stripMargin
+        |VALUES ($id, '$name', $parent_id, $depth, '$field_name');""".stripMargin
     }})
 
     // Assign IDs to projects
@@ -173,7 +177,7 @@ object Foi_hierarchy {
 
       s"""
          |INSERT INTO nq_project
-         |VALUES ($id, '$name', '$description');""".stripMargin
+         |VALUES ($id, '$name', '$description', '$project');""".stripMargin
     })
 
     var next_id = 0

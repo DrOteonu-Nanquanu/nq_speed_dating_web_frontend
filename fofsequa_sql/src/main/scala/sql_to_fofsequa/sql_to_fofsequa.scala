@@ -25,7 +25,7 @@ object Sql_to_fofsequa {
     val stmt = c.createStatement();
     val sql =
       """
-        |SELECT u.username, ah.some_expertise, ah.interested, ah.sympathise, ah.no_interest, ah.time, foi.name
+        |SELECT u.username, ah.some_expertise, ah.interested, ah.sympathise, ah.no_interest, ah.time, foi.fofsequa_constant
         |FROM nq_user u
         |INNER JOIN topic_affinity_history ah ON u.id = ah.user_id
         |INNER JOIN field_of_interest foi ON ah.topic_id = foi.id;""".stripMargin
@@ -40,13 +40,11 @@ object Sql_to_fofsequa {
       val sympathise = query_result.getBoolean(4)
       val no_interest = query_result.getBoolean(5)
       val date_time = (query_result.getTimestamp(6))
-      val foi_name = query_result.getString(7) // TODO: this should be the fofsequa constant, not the display name
+      val foi_constant = query_result.getString(7) // TODO: this should be the fofsequa constant, not the display name
 
-      
+      println(username.toString ++ " " ++ some_expertise.toString ++ " " ++ interested.toString ++ " " ++ sympathise.toString ++ " " ++ no_interest.toString ++ " " ++ foi_constant.toString + " " + date_time.toString)
 
-      println(username.toString ++ " " ++ some_expertise.toString ++ " " ++ interested.toString ++ " " ++ sympathise.toString ++ " " ++ no_interest.toString ++ " " ++ foi_name.toString + " " + date_time.toString)
-
-      val key = (username, foi_name)
+      val key = (username, foi_constant)
       val old_list = result.getOrElse(key, List())
       result(key) = (Affinity(some_expertise, interested, sympathise, no_interest), date_time.getTime) :: old_list
     }
@@ -78,7 +76,7 @@ object Sql_to_fofsequa {
 
   def truth_range_to_statement(truth_value: Boolean, from_time: Long, to_time: Option[Long], project_topic_name: String, affinity_level_name: String, user_id: String): String = {
       val possible_negation = if(truth_value) {""} else {"not "}
-      val inner_stmt = possible_negation ++ f"$affinity_level_name($user_id, $project_topic_name)"
+      val inner_stmt = possible_negation ++ f"$affinity_level_name('nq_speed_dating_user_$user_id', '$project_topic_name')"
 
       to_time match {
           case Some(to_time) => f"ValidBetween($from_time, $to_time, $inner_stmt)"
