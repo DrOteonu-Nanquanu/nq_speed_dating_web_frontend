@@ -5,7 +5,7 @@ import java.sql.{Connection, ResultSet}
 import akka.actor.ActorSystem
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.{Field_Of_Expertise, Interest_level, Nq_project, User}
+import models.{Topic, Interest_level, Nq_project, User}
 import models.database.Database_ID
 import play.api.db.Database
 
@@ -163,6 +163,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
   def set_project_interesting_to(user_id: Database_ID, project_id: Database_ID, affinities: List[Interest_level]): Future[Unit] = {
     Future {
+      println(f"set_project_interesting_to($user_id, $project_id, $affinities)")
       db.withConnection(connection => {
         // First, remove existing records for this user and project
         val update_sql =
@@ -180,7 +181,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         for(affinity <- affinities) {
           val insert_sql =
             s"""
-               |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_foi)
+               |INSERT INTO project_interest_level(user_id, project_id, level_of_interest, first_parent_topic)
                |SELECT id, ?, ?, current_parent_id
                |FROM nq_user
                |WHERE id = ?;
@@ -205,7 +206,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     val sql =
       s"""
         |SELECT parent.id
-        |FROM field_of_interest parent
+        |FROM topic parent
         |WHERE
           |(
             |EXISTS (                                                          -- Test if there are any nq_projects related to parent
@@ -213,7 +214,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
               |FROM project_interesting_to pit
               |INNER JOIN nq_project ON nq_project.id = pit.nq_project_id
               |WHERE
-                |pit.field_of_interest_id = parent.id AND
+                |pit.topic_id = parent.id AND
                 |NOT EXISTS (                                                 -- The nq_project should not have an assigned level of interest yet
                   |SELECT *
                   |FROM project_interest_level pil
@@ -223,7 +224,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             |OR
             |EXISTS (                                                         -- Test if the parent has any child topic's
               |SELECT *
-              |FROM field_of_interest child
+              |FROM topic child
               |WHERE
                 |child.parent_id = parent.id AND
                 |NOT EXISTS (                                                 -- The children should not have an assigned level of interest yet
@@ -312,7 +313,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         INSERT INTO ${affinity_type.user_edits_table}(user_id, ${affinity_type.edit_state_table_id_column})
         SELECT ?, pit.nq_project_id
         FROM project_interesting_to AS pit
-        WHERE pit.field_of_interest_id = (
+        WHERE pit.topic_id = (
           SELECT MIN(possible_parent.parent_id)
           FROM (
             ${argmax_sql("possible_parents", "parent_id", "parent_depth_in_tree")}             -- Select the topics that are valid topics and have the lowest depth_in_tree
@@ -357,7 +358,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
           EXISTS (    -- Alternatively, there can exist a related project that has not been assigned a level of interest yet
             SELECT *
             FROM ${project_affinity.general_info_table} AS p
-            INNER JOIN project_interesting_to pit ON pit.nq_project_id = p.id AND pit.field_of_interest_id = parent.id
+            INNER JOIN project_interesting_to pit ON pit.nq_project_id = p.id AND pit.topic_id = parent.id
             WHERE NOT EXISTS (
               SELECT *
               FROM ${project_affinity.history_table} AS history
@@ -440,10 +441,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     db.withConnection(connection => {
       // val sql =
       //   """
-      //     |SELECT field_of_interest.name AS name, field_of_interest.id AS id, interest_level.level_of_interest AS level_of_interest
-      //     |FROM field_of_interest
-      //     |INNER JOIN nq_user ON field_of_interest.parent_id = nq_user.current_parent_id
-      //     |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND field_of_interest.id = interest_level.interest_id
+      //     |SELECT topic.name AS name, topic.id AS id, interest_level.level_of_interest AS level_of_interest
+      //     |FROM topic
+      //     |INNER JOIN nq_user ON topic.parent_id = nq_user.current_parent_id
+      //     |LEFT JOIN interest_level ON nq_user.id = interest_level.user_id AND topic.id = interest_level.interest_id
       //     |WHERE nq_user.id = ?;
       //     |""".stripMargin
       
@@ -451,7 +452,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         """
         SELECT t.name AS name, t.id AS id, il.level_of_interest AS level_of_interest
         FROM user_edits_topic uet
-        INNER JOIN field_of_interest AS t ON t.id = uet.topic_id
+        INNER JOIN topic AS t ON t.id = uet.topic_id
         LEFT JOIN interest_level AS il ON uet.user_id = il.user_id AND t.id = il.interest_id
         WHERE uet.user_id = ?
         """.stripMargin
@@ -532,7 +533,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
             result ::= Nq_project(name, Database_ID(id), interest_levels, description)
           }
           else {
-            result ::= Field_Of_Expertise(name, Database_ID(id), interest_levels)
+            result ::= Topic(name, Database_ID(id), interest_levels)
           }
         }
 
@@ -560,9 +561,9 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       //     |INNER JOIN project_interesting_to pio
       //     |ON project.id = pio.nq_project_id
       //     |INNER JOIN nq_user
-      //     |ON nq_user.current_parent_id = pio.field_of_interest_id
+      //     |ON nq_user.current_parent_id = pio.topic_id
       //     |LEFT JOIN project_interest_level pil ON project.id = pil.project_id AND pil.user_id = nq_user.id
-      //     |WHERE nq_user.id = ? AND (pil.first_parent_foi IS NULL OR pil.first_parent_foi = nq_user.current_parent_id);
+      //     |WHERE nq_user.id = ? AND (pil.first_parent_topic IS NULL OR pil.first_parent_topic = nq_user.current_parent_id);
       //     |""".stripMargin
 
 

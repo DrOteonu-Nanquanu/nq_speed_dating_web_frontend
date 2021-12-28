@@ -25,7 +25,7 @@ object User_data {
       user_id,
       Field("project_id", "INT NOT NULL"),
       Field("level_of_interest", "INT NOT NULL"),
-      Field("first_parent_foi", "INT")
+      Field("first_parent_topic", "INT")
     ), Some("id")),
     Table("topic_affinity_history", List(
       id,

@@ -25,10 +25,10 @@ object Sql_to_fofsequa {
     val stmt = c.createStatement();
     val sql =
       """
-        |SELECT u.username, ah.some_expertise, ah.interested, ah.sympathise, ah.no_interest, ah.time, foi.fofsequa_constant
+        |SELECT u.username, ah.some_expertise, ah.interested, ah.sympathise, ah.no_interest, ah.time, t.fofsequa_constant
         |FROM nq_user u
         |INNER JOIN topic_affinity_history ah ON u.id = ah.user_id
-        |INNER JOIN field_of_interest foi ON ah.topic_id = foi.id;""".stripMargin
+        |INNER JOIN topic t ON ah.topic_id = t.id;""".stripMargin
     var query_result = stmt.executeQuery(sql)
 
     var result = scala.collection.mutable.Map.empty[(String, String), List[(Affinity, Long)]] // Maps (username, topic_name) -> (affinity, timestamp)
@@ -40,11 +40,11 @@ object Sql_to_fofsequa {
       val sympathise = query_result.getBoolean(4)
       val no_interest = query_result.getBoolean(5)
       val date_time = (query_result.getTimestamp(6))
-      val foi_constant = query_result.getString(7) // TODO: this should be the fofsequa constant, not the display name
+      val topic_constant = query_result.getString(7) // TODO: this should be the fofsequa constant, not the display name
 
-      println(username.toString ++ " " ++ some_expertise.toString ++ " " ++ interested.toString ++ " " ++ sympathise.toString ++ " " ++ no_interest.toString ++ " " ++ foi_constant.toString + " " + date_time.toString)
+      println(username.toString ++ " " ++ some_expertise.toString ++ " " ++ interested.toString ++ " " ++ sympathise.toString ++ " " ++ no_interest.toString ++ " " ++ topic_constant.toString + " " + date_time.toString)
 
-      val key = (username, foi_constant)
+      val key = (username, topic_constant)
       val old_list = result.getOrElse(key, List())
       result(key) = (Affinity(some_expertise, interested, sympathise, no_interest), date_time.getTime) :: old_list
     }

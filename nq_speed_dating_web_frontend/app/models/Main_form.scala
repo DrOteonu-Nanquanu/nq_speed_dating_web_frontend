@@ -3,7 +3,7 @@ package models
 import models.Interest_level.Interest_level
 import models.database.Database_ID
 
-case class Field_Of_Expertise(name: String, id: Database_ID, interest_levels: List[Interest_level]) extends Form_item {
+case class Topic(name: String, id: Database_ID, interest_levels: List[Interest_level]) extends Form_item {
   def optional_description: Option[Nothing] = None
 
   override def item_type: String = "expertise"
@@ -68,6 +68,6 @@ case class TopicAffinity() extends Affinity {
   val ui_table_id_column = "interest_id"
   val history_table_id_column = "topic_id"
   // val edit_state_table_id_column = ""
-  val general_info_table = "field_of_interest"
+  val general_info_table = "topic"
   val has_description = false;
 }

@@ -48,7 +48,7 @@ class User_expertise_data @Inject()(
   }
 
   // Find the topics that the user currently must fill in, and their assigned level_of interest.
-  def get_current_topics(user_id: Database_ID): Future[List[Field_Of_Expertise]] = {
+  def get_current_topics(user_id: Database_ID): Future[List[Topic]] = {
     db.get_current_topics(user_id).map(topic_records_to_topics)
   }
   // TODO: This method and `get_current_topics` are almost a copy-paste. Could use some nice abstraction.
@@ -56,7 +56,7 @@ class User_expertise_data @Inject()(
     db.get_current_nq_projects(user_id).map(project_records_to_projects)
   }
 
-  def get_current_topics_and_projects(user_id: Database_ID): Future[(List[Field_Of_Expertise], List[Nq_project])] = {
+  def get_current_topics_and_projects(user_id: Database_ID): Future[(List[Topic], List[Nq_project])] = {
     val topics = db.get_current_topics(user_id).map(topic_records_to_topics)
     val projects = db.get_current_nq_projects(user_id).map(project_records_to_projects)
 
@@ -88,7 +88,7 @@ class User_expertise_data @Inject()(
     ids.map(id => {
       val records = topics.filter(_.id == id)
 
-      Field_Of_Expertise(records.head.name, records.head.id, records.flatMap(_.interest_level))
+      Topic(records.head.name, records.head.id, records.flatMap(_.interest_level))
     })
   }
 

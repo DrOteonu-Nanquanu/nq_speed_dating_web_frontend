@@ -23,6 +23,7 @@ function save_ui_state_for_affinity(form: HTMLFormElement) {
             set_status("Your changes are saved so that you can continue where you left off next time. They are not yet submitted to our database.");
         }
         else {
+            alert(`Failed to save changes with error ${res.status}: ${res.statusText}`)
             set_status(`Failed to save changes with error ${res.status}: ${res.statusText}`);;
         }
 
