@@ -1,11 +1,17 @@
 version: "3"
 services:
   speeddating_app:
-    image: nq_speed_dating_web_frontend:0.1-SNAPSHOT
+    build:
+      dockerfile: Dockerfile
     ports:
-      - 3000:8080
+      - "9000:9000"
     depends_on:
       - speeddating_db
+    environment:
+      - DB_URL=jdbc:postgresql://speeddating_db:5432/test
+      - DB_HOST=speeddating_db
+    env_file:
+      - .env
   speeddating_db:
     image: "postgres"
     env_file:
@@ -13,4 +19,4 @@ services:
     volumes:
       - speeddating_db-data:/var/lib/postgresql/data/
 volumes:
-  speeddating_db-data:
+  speeddating_db-data: null
