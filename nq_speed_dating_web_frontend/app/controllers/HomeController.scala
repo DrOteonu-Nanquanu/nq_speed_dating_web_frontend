@@ -187,11 +187,9 @@ class HomeController @Inject()(
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
-          db.get_newest_submitted_affinites(user_id, TopicAffinity())
-            .zip(
-              db.get_newest_submitted_affinites(user_id, ProjectAffinity())
-            )
-            .map({ case (topics, projects) => Ok(views.html.changed_submitted_affinities(topics, projects)) })
+          user_expertise_data.get_current_affinity_states(user_id).map({ case (topics, projects) =>
+            Ok(views.html.changed_submitted_affinities(topics, projects))
+          })
           
         case None => Future { Unauthorized("you're not logged in") }
       }

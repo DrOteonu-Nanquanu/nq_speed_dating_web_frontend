@@ -106,6 +106,15 @@ class User_expertise_data @Inject()(
     }
     
   }
+
+  def get_current_affinity_states(user_id: Database_ID): Future[(List[Form_item], List[Form_item])] = {
+    val topic_states_future = db.get_newest_submitted_affinites(user_id, TopicAffinity()).map(
+      topic_states => topic_states.filter(_.id.id != 0) // Remove the root topic called "All" with id 0
+    )
+    val project_states_future = db.get_newest_submitted_affinites(user_id, ProjectAffinity())
+
+    topic_states_future.zip(project_states_future)
+  }
 }
 
 sealed trait Login_result
