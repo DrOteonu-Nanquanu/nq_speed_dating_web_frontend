@@ -1,9 +1,9 @@
-@(optional_login_error: Optional_login_error)
+@(optional_login_error: Option[String])
 
 @main("Welcome to NQ Project Speed Dating") {<script></script>} {
   <h1>Welcome to NQ Project Speed Dating!</h1>
 
-  @{optional_login_error.login_error match {
+  @{optional_login_error match {
     case Some(error) => error
     case None => ""
   }}

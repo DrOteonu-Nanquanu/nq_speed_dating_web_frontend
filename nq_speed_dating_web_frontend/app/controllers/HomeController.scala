@@ -2,15 +2,15 @@ package controllers
 
 import javax.inject._
 import play.api.mvc._
-import models._
-import models.database.Database_ID
+import models.{Database_ID, _}
 import play.api.libs.json.{JsNumber, JsPath, JsString, JsValue}
 import services.database.ScalaApplicationDatabase
 import play.api.data._
 
 import scala.concurrent.Future
 import org.mindrot.jbcrypt.BCrypt
-import scala.util.{Try, Success, Failure}
+
+import scala.util.{Failure, Success, Try}
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -21,7 +21,6 @@ class HomeController @Inject()(
   val controllerComponents: ControllerComponents,
   val userAction: UserInfoAction,
   val user_expertise_data: User_expertise_data,
-  //val db: ScalaApplicationDatabase,
   val db: ScalaApplicationDatabase,
   val verifier: Verification,
 )(
@@ -30,7 +29,7 @@ class HomeController @Inject()(
   def index(login_error: Optional_login_error): Action[AnyContent] = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(_: UserInfo) => Redirect("/welcome_page")
-      case None => Ok(views.html.index(login_error))
+      case None => Ok(views.html.index(login_error.login_error.map(idx => login_errors(idx))))
     }
   }
 
@@ -44,9 +43,9 @@ class HomeController @Inject()(
   }
 
   /**
-   * The meat of the application: this page is where people fill in information about their expertise
+   * The core of the application: this page is where people fill in information about their expertise
    */
-  def form(): Action[AnyContent] = userAction.async {
+  def main_form(): Action[AnyContent] = userAction.async {
     implicit request: UserRequest[_] => {
       request.userInfo match {
         case Some(UserInfo(_, user_id)) =>
@@ -120,18 +119,18 @@ class HomeController @Inject()(
                     }
 
                   }
-                        case _ => Future {
-                          BadRequest("levels_of_interest isn't an array")
-                        }
+                  case _ => Future {
+                    BadRequest("levels_of_interest isn't an array")
+                  }
                 }
               }
-                        case _ => Future { BadRequest("expertise_id isn't a number") }
+              case _ => Future { BadRequest("expertise_id isn't a number") }
             }
           }
           else {
             Future { BadRequest("response has no body") }
           }
-                        case None => Future { Unauthorized("you're not logged in") }
+          case None => Future { Unauthorized("you're not logged in") }
       }
     }
   }
@@ -146,12 +145,19 @@ class HomeController @Inject()(
     )(Login_info.apply)(Login_info.unapply)
   )
 
+  val login_errors = Array(
+    "Incorrect password",
+    "Username not found",
+    "Username already taken",
+    "You've tried logging out while you were already logged out"
+  )
+
   // POST action associated with the login form on the index page
   def login: Action[Login_info] = userAction.async(parse.form(login_form)) { implicit request: UserRequest[Login_info] => {
     val Login_info(username, password) = request.body
     verifier.login(username, password, request.session).map({
-      case Incorrect_password() => Redirect("/?login_error=Incorrect+password")
-      case Username_not_found() => Redirect("/?login_error=Username+not+found")
+      case Incorrect_password() => Redirect("/?login_error=0")
+      case Username_not_found() => Redirect("/?login_error=1")
       case Login_successful(session_creator) => session_creator(Redirect("/welcome_page"))
     })
   }}
@@ -161,7 +167,7 @@ class HomeController @Inject()(
   // POST action associated with the register form on the index page
   def register: Action[Login_info] = userAction.async(parse.form(register_form)) { implicit request: UserRequest[Login_info] => {
     verifier.register(request.body.username, request.body.password, request.session).map({
-      case Username_taken() => Redirect("/?login_error=Username+already+taken")
+      case Username_taken() => Redirect("/?login_error=2")
       case Login_successful(session_creator) => session_creator(Redirect("/welcome_page"))
     })
   }}
@@ -169,19 +175,19 @@ class HomeController @Inject()(
   def logout = userAction { implicit request: UserRequest[_] =>
     request.userInfo match {
       case Some(_: UserInfo) => Redirect("/").withNewSession.discardingCookies()
-      case None => Ok(views.html.index(Optional_login_error(Some("You've tried login out while you were already logout out."))))
+      case None => Ok(views.html.index(Some(login_errors(3))))
     }
   }
 
-  def submit_affinities(affinity_type: Affinity)(topic_project_id: Int): Action[AnyContent] = userAction.async { implicit request: UserRequest[_] => {
+  def submit_affinities(affinity_type: TopicProject)(topic_project_id: Int): Action[AnyContent] = userAction.async { implicit request: UserRequest[_] => {
     println("HomeController.submit_affinities")
     request.userInfo match {
       case Some(UserInfo(_, user_id)) => db.submit_affinities(user_id, Database_ID(topic_project_id), affinity_type).map(_ => Ok(""))
       case None => Future { Redirect("/") }
   }}}
 
-  def submit_topic_affinities = submit_affinities(TopicAffinity())(_)
-  def submit_project_affinities = submit_affinities(ProjectAffinity())(_)
+  def submit_topic_affinities = submit_affinities(Topic())(_)
+  def submit_project_affinities = submit_affinities(Project())(_)
 
   def change_affinities_page: Action[AnyContent] = userAction.async {
     implicit request: UserRequest[_] => {
@@ -225,11 +231,10 @@ class HomeController @Inject()(
 
     def parse_form_item_type(elem: JsValue) = 
       (elem \ "form_item_type").asOpt[String].toRight(item_misses_exception("form_item_type")).toTry.flatMap({
-        case "expertise" => Success(TopicAffinity())
-        case "project" => Success(ProjectAffinity())
+        case "expertise" => Success(Topic())
+        case "project" => Success(Project())
         case other => Failure(new Exception(f"Did not recognise $other as affinity type"))
       })
-
 
     request: UserRequest[JsValue] => {
         request.userInfo.map(userInfo => {
@@ -254,8 +259,7 @@ class HomeController @Inject()(
   }
 
   def test: Action[AnyContent] = userAction.async {
-    // println(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(new Exception("test1")))
     throw new Exception("test")
-    db.update_editing_topics_projects(models.database.Database_ID(1), models.TopicAffinity()).map(_ => Ok)
+    Future{ Ok }
   }
 }

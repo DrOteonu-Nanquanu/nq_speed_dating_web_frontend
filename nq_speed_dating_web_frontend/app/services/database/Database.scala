@@ -1,18 +1,15 @@
 package services.database
 
 import java.sql.{Connection, ResultSet}
-
 import akka.actor.ActorSystem
+
 import javax.inject._
 import models.Interest_level.Interest_level
-import models.{Topic, Interest_level, Nq_project, User}
-import models.database.Database_ID
+import models.{TopicProject, Database_ID, Interest_level, FormProject, Project, FormTopic, Topic, User}
 import play.api.db.Database
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.CustomExecutionContext
-
-import models.{Affinity, ProjectAffinity, TopicAffinity}
 
 @Singleton
 class DatabaseExecutionContext @Inject()(system: ActorSystem) extends CustomExecutionContext(system, "database.dispatcher")
@@ -277,7 +274,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
 
   // Updates which topics or projects the user is editing
-  def update_editing_topics_projects(user_id: Database_ID, affinity_type: Affinity) = Future {
+  def update_editing_topics_projects(user_id: Database_ID, affinity_type: TopicProject) = Future {
     db.withConnection(connection => {
       println("update_editing_topics_projects")
 
@@ -327,8 +324,8 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         """.stripMargin
       }
 
-      val project_affinity = ProjectAffinity()
-      val topic_affinity = TopicAffinity()
+      val project_affinity = Project()
+      val topic_affinity = Topic()
       
 
       val insert_sql = s"""
@@ -368,9 +365,6 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         )
       )
       """.stripMargin + insert_part
-
-      println("printing inser_sql")
-      println(insert_sql)
 
       val insert_stmt = connection.prepareStatement(insert_sql)
       insert_stmt.setInt(1, user_id.id);
@@ -473,7 +467,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
-  def newest_submitted_affinities_sql(affinity_type: Affinity, user_id_unsafe: String): String = {
+  def newest_submitted_affinities_sql(affinity_type: TopicProject, user_id_unsafe: String): String = {
         f"""
         SELECT a.${affinity_type.history_table_id_column} AS id, a.some_expertise, a.interested, a.sympathise, a.no_interest AS no_interest
         FROM ${affinity_type.history_table} AS a
@@ -486,7 +480,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
   }
   // TODO: Better documentation
   // user_id_unsafe should not be a user inputted value. If it is, use "?" instead.
-  def newest_submitted_affnities_sql(affinity_type: Affinity, user_id_unsafe: String): String = {
+  def newest_submitted_affnities_sql(affinity_type: TopicProject, user_id_unsafe: String): String = {
         val select_description = if(affinity_type.has_description) ", info_table.description" else ""
 
         f"""
@@ -501,7 +495,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         |""".stripMargin
   }
 
-  def get_newest_submitted_affinites(user_id: Database_ID, affinity_type: Affinity): Future[List[models.Form_item]] = {
+  def get_newest_submitted_affinites(user_id: Database_ID, affinity_type: TopicProject): Future[List[models.FormItem]] = {
     Future {
       db.withConnection(connection => {
         val sql = newest_submitted_affnities_sql(affinity_type, "?")
@@ -510,7 +504,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         stmt.setInt(1, user_id.id)
 
         val query_result = stmt.executeQuery()
-        var result = List[models.Form_item]()
+        var result = List[models.FormItem]()
 
         while(query_result.next()) {
           val name = query_result.getString(1)
@@ -530,10 +524,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
 
           if(affinity_type.has_description) {
             val description = query_result.getString(7)
-            result ::= Nq_project(name, Database_ID(id), interest_levels, description)
+            result ::= FormProject(name, Database_ID(id), interest_levels, description)
           }
           else {
-            result ::= Topic(name, Database_ID(id), interest_levels)
+            result ::= FormTopic(name, Database_ID(id), interest_levels)
           }
         }
 
@@ -594,7 +588,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
-  def submit_affinities(user_id: Database_ID, project_topic_id: Database_ID, affintiy_type: Affinity) : Future[Unit] = Future {
+  def submit_affinities(user_id: Database_ID, project_topic_id: Database_ID, affintiy_type: TopicProject) : Future[Unit] = Future {
     println(s"submit_affinities: ($user_id, $project_topic_id, ${affintiy_type.ui_table}, ${affintiy_type.history_table})")
     db.withConnection(connection => {
       val query_sql =
@@ -645,10 +639,10 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
-  def submit_topic_affinities = submit_affinities(_: Database_ID, _: Database_ID, TopicAffinity())
-  def submit_project_affinities = submit_affinities(_: Database_ID, _: Database_ID, ProjectAffinity())
+  def submit_topic_affinities = submit_affinities(_: Database_ID, _: Database_ID, Topic())
+  def submit_project_affinities = submit_affinities(_: Database_ID, _: Database_ID, Project())
 
-  def submit_affinities(user_id: Database_ID, levels_of_affinity: List[Interest_level], project_topic_id: Database_ID, affintiy_type: Affinity): Future[Unit] = Future {
+  def submit_affinities(user_id: Database_ID, levels_of_affinity: List[Interest_level], project_topic_id: Database_ID, affintiy_type: TopicProject): Future[Unit] = Future {
     db.withConnection(connection => {
       val sql = s"""
       |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
@@ -667,4 +661,53 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
       stmt.executeUpdate()
     })
   }
+
+  def user_filled_in_all_current_topics_projects_inner(user_id: Database_ID, affinity_type: TopicProject): Future[Boolean] = Future {
+    db.withConnection(connection => {
+      val sql =
+        s"""
+           |SELECT *
+           |FROM ${affinity_type.user_edits_table} e
+           |WHERE NOT EXISTS (
+             |SELECT *
+             |FROM ${affinity_type.history_table} h
+             |WHERE e.${affinity_type.history_table_id_column} = h.${affinity_type.history_table_id_column} AND h.user_id = e.user_id
+           |) AND e.user_id = ?
+    """.stripMargin
+
+      print(sql)
+
+      print(f"user_id = ${user_id.id}")
+
+      val stmt = connection.prepareStatement(sql)
+      stmt.setInt(1, user_id.id)
+
+      val query_result = stmt.executeQuery()
+
+      val is_last = !query_result.next()
+      println(f"is_last = $is_last")
+      is_last
+/*
+      val last = result.next()
+      println(f"last = $last")
+      println((
+        result.getString("user_id"), result.getString("project_id")
+      ))
+
+      while(result.next()) {
+        println((
+          result.getString("user_id"), result.getString("project_id")
+        ))
+      }
+
+      last
+ */
+    })
+  }
+
+    def user_filled_in_all_current_topics_projects(user_id: Database_ID) = {
+      user_filled_in_all_current_topics_projects_inner(user_id, Topic()).zip(
+        user_filled_in_all_current_topics_projects_inner(user_id, Project())
+      ).map({case (t, p) => t && p})
+    }
 }

@@ -1,4 +1,4 @@
-@(expertises: Seq[models.Form_item], nq_projects: Seq[models.Form_item])
+@(expertises: Seq[models.FormItem], nq_projects: Seq[models.FormItem])
 
 @main("Expertises Form"){
     <script src="assets/ts/util.js"></script>
@@ -12,6 +12,10 @@
 
     @for(expertise_data <- expertises) {
         @expertise(expertise_data)
+    }
+
+    @if(expertises.isEmpty && nq_projects.isEmpty) {
+        <p>You have nothing more to fill in</p>
     }
 
     <div id="status">No changes</div>

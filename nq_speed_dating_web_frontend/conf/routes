@@ -7,7 +7,7 @@ GET  /              controllers.HomeController.index(login_error: models.Optiona
 GET  /welcome_page              controllers.HomeController.welcome_page
 
 # Main form
-GET /form                       controllers.HomeController.form
+GET /form                       controllers.HomeController.main_form
 GET /move_to_next_parent        controllers.HomeController.move_to_next_parent
 PUT /update_form_item           controllers.HomeController.update_form_item
 GET /change_affinities_page     controllers.HomeController.change_affinities_page

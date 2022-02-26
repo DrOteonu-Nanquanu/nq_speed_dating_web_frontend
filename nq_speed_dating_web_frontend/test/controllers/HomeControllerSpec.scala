@@ -4,8 +4,7 @@ import org.scalatestplus.play._
 import org.scalatestplus.play.guice._
 import play.api.test._
 import play.api.test.Helpers._
-
-import models.Optional_login_error
+import models.{Database_ID, Optional_login_error}
 
 /**
  * Add your spec here.
@@ -48,12 +47,12 @@ class HomeControllerSpec extends PlaySpec with GuiceOneAppPerTest with Injecting
       val db = inject[services.database.ScalaApplicationDatabase]
 
       println(
-        db.newest_submitted_affnities_sql(models.TopicAffinity(), "1")
+        db.newest_submitted_affnities_sql(models.Topic(), "1")
       )
 
       println("testing update_editing_topics_projects")
       scala.concurrent.Await.ready(
-        db.update_editing_topics_projects(models.database.Database_ID(1), models.TopicAffinity()),
+        db.update_editing_topics_projects(Database_ID(1), models.Topic()),
         scala.concurrent.duration.Duration.Inf
       )
       println("done testing update_editing_topics_projects")

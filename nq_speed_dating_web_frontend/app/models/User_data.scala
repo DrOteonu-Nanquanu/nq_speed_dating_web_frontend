@@ -1,7 +1,7 @@
 package models
 
 import controllers.{SESSION_ID, SessionGenerator, UserInfo}
-import database.Database_ID
+
 import javax.inject.{Inject, Singleton}
 import org.mindrot.jbcrypt.BCrypt
 import play.api.mvc.{Result, Session}
@@ -27,11 +27,22 @@ class User_expertise_data @Inject()(
 
   // Moves to the next topic whose children will be filled in by the user
   def next_topic_parent(user: Database_ID): Future[Option[Database_ID]] = {
-    db.update_editing_topics_projects(user, TopicAffinity()).zip(
-      db.update_editing_topics_projects(user, ProjectAffinity())
-    ).map({case (topic_update, project_update) => 
-      Some(Database_ID(-1))
+    // TODO: Test whether the user has filled in all current topics and projects
+    
+    db.user_filled_in_all_current_topics_projects(user).flatMap(all_filled_in => {
+      if(all_filled_in) {
+        db.update_editing_topics_projects(user, Topic()).zip(
+          db.update_editing_topics_projects(user, Project())
+        ).map({case (topic_update, project_update) =>
+          Some(Database_ID(-1))
+        })
+      }
+      else {
+        Future { None }
+      }
     })
+
+
 
 
     // db.next_topic_parent(user).flatMap(next_parent_id => {
@@ -48,15 +59,15 @@ class User_expertise_data @Inject()(
   }
 
   // Find the topics that the user currently must fill in, and their assigned level_of interest.
-  def get_current_topics(user_id: Database_ID): Future[List[Topic]] = {
+  def get_current_topics(user_id: Database_ID): Future[List[FormTopic]] = {
     db.get_current_topics(user_id).map(topic_records_to_topics)
   }
   // TODO: This method and `get_current_topics` are almost a copy-paste. Could use some nice abstraction.
-  def get_current_projects(user_id: Database_ID): Future[List[Nq_project]] = {
+  def get_current_projects(user_id: Database_ID): Future[List[FormProject]] = {
     db.get_current_nq_projects(user_id).map(project_records_to_projects)
   }
 
-  def get_current_topics_and_projects(user_id: Database_ID): Future[(List[Topic], List[Nq_project])] = {
+  def get_current_topics_and_projects(user_id: Database_ID): Future[(List[FormTopic], List[FormProject])] = {
     val topics = db.get_current_topics(user_id).map(topic_records_to_topics)
     val projects = db.get_current_nq_projects(user_id).map(project_records_to_projects)
 
@@ -79,7 +90,7 @@ class User_expertise_data @Inject()(
     ids.map(id => {
       val records = projects.filter(_.id == id)
 
-      Nq_project(records.head.name, records.head.id, records.flatMap(_.interest_level), records.head.description)
+      FormProject(records.head.name, records.head.id, records.flatMap(_.interest_level), records.head.description)
     })
   }
   def topic_records_to_topics(topics: List[db.TopicRecord]) = {
@@ -88,13 +99,13 @@ class User_expertise_data @Inject()(
     ids.map(id => {
       val records = topics.filter(_.id == id)
 
-      Topic(records.head.name, records.head.id, records.flatMap(_.interest_level))
+      FormTopic(records.head.name, records.head.id, records.flatMap(_.interest_level))
     })
   }
 
   // TODO: update ui state as well
   // TODO: filter unchanged values
-  def submit_forms(user_id: Database_ID, levels_of_interest: List[models.Interest_level.Interest_level], project_id: Database_ID, form_item_type: Affinity): Future[Unit] = {
+  def submit_forms(user_id: Database_ID, levels_of_interest: List[models.Interest_level.Interest_level], project_id: Database_ID, form_item_type: TopicProject): Future[Unit] = {
     println(f"submit_forms($user_id, $levels_of_interest, $project_id, $form_item_type)")
     val submit_affinities_future = db.submit_affinities(user_id, levels_of_interest, project_id, form_item_type)
 
@@ -107,11 +118,11 @@ class User_expertise_data @Inject()(
     
   }
 
-  def get_current_affinity_states(user_id: Database_ID): Future[(List[Form_item], List[Form_item])] = {
-    val topic_states_future = db.get_newest_submitted_affinites(user_id, TopicAffinity()).map(
+  def get_current_affinity_states(user_id: Database_ID): Future[(List[FormItem], List[FormItem])] = {
+    val topic_states_future = db.get_newest_submitted_affinites(user_id, Topic()).map(
       topic_states => topic_states.filter(_.id.id != 0) // Remove the root topic called "All" with id 0
     )
-    val project_states_future = db.get_newest_submitted_affinites(user_id, ProjectAffinity())
+    val project_states_future = db.get_newest_submitted_affinites(user_id, Project())
 
     topic_states_future.zip(project_states_future)
   }
@@ -172,7 +183,7 @@ class Verification @Inject()(
         db.get_user_id(username).flatMap {
           case Some(id) => {
             
-            db.submit_affinities(id, List(Interest_level.interested), Database_ID(0), TopicAffinity()) // The root topic "All" is of some interest to anyone
+            db.submit_affinities(id, List(Interest_level.interested), Database_ID(0), Topic()) // The root topic "All" is of some interest to anyone
             .flatMap(_ =>
                 user_expertise_data.next_topic_parent(id)
             ).flatMap(_ =>

@@ -1,5 +1,6 @@
+import models.Database_ID
+
 import javax.inject.{Inject, Singleton}
-import models.database.Database_ID
 import play.api.http.SecretConfiguration
 import play.api.i18n.MessagesApi
 import play.api.libs.json.{Format, Json}
