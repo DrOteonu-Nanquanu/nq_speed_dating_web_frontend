@@ -247,7 +247,10 @@ class HomeController @Inject()(
           val result = maybe_body.flatMap(body => list_of_try_to_try_of_list(body.map(elem =>
             parse_levels_of_interest(elem).zip(parse_database_id(elem)).zip(parse_form_item_type(elem))
           )).map(_.map(
-           { case ((levels_of_interest, database_id), affinity_type) => user_expertise_data.submit_forms(userInfo.id, levels_of_interest, database_id, affinity_type)}
+           {
+             case ((List(), _), _) => Future {}
+             case ((levels_of_interest, database_id), affinity_type) if levels_of_interest.nonEmpty => user_expertise_data.submit_forms(userInfo.id, levels_of_interest, database_id, affinity_type)
+           }
          )))
           
           result match {

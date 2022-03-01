@@ -588,6 +588,7 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
     })
   }
 
+  // TODO: two methods with the same name is confusing
   def submit_affinities(user_id: Database_ID, project_topic_id: Database_ID, affintiy_type: TopicProject) : Future[Unit] = Future {
     println(s"submit_affinities: ($user_id, $project_topic_id, ${affintiy_type.ui_table}, ${affintiy_type.history_table})")
     db.withConnection(connection => {
@@ -620,22 +621,24 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
         }
       }
 
-      val update_sql =
-        s"""
-          |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
-          |VALUES(?, ?, ?, ?, ?, ?);
+      if(some_expertise || interested || sympathise || no_interest) {
+        val update_sql =
+          s"""
+             |INSERT INTO ${affintiy_type.history_table}(user_id, ${affintiy_type.history_table_id_column}, some_expertise, interested, sympathise, no_interest)
+             |VALUES(?, ?, ?, ?, ?, ?);
           """.stripMargin
 
-      val update_stmt = connection.prepareStatement(update_sql)
+        val update_stmt = connection.prepareStatement(update_sql)
 
-      update_stmt.setInt(1, user_id.id)
-      update_stmt.setInt(2, project_topic_id.id)
-      update_stmt.setBoolean(3, some_expertise)
-      update_stmt.setBoolean(4, interested)
-      update_stmt.setBoolean(5, sympathise)
-      update_stmt.setBoolean(6, no_interest)
+        update_stmt.setInt(1, user_id.id)
+        update_stmt.setInt(2, project_topic_id.id)
+        update_stmt.setBoolean(3, some_expertise)
+        update_stmt.setBoolean(4, interested)
+        update_stmt.setBoolean(5, sympathise)
+        update_stmt.setBoolean(6, no_interest)
 
-      update_stmt.executeUpdate()
+        update_stmt.executeUpdate()
+      }
     })
   }
 
@@ -672,15 +675,15 @@ class ScalaApplicationDatabase @Inject() (db: Database)(implicit databaseExecuti
              |SELECT *
              |FROM ${affinity_type.history_table} h
              |WHERE e.${affinity_type.history_table_id_column} = h.${affinity_type.history_table_id_column} AND h.user_id = e.user_id
-           |) AND e.user_id = ?
+           |) AND e.user_id = ${user_id.id}
     """.stripMargin
 
-      print(sql)
+      println(sql)
 
-      print(f"user_id = ${user_id.id}")
+      println(f"user_id = ${user_id.id}")
 
       val stmt = connection.prepareStatement(sql)
-      stmt.setInt(1, user_id.id)
+      // stmt.setInt(1, user_id.id)
 
       val query_result = stmt.executeQuery()
 
